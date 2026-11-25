@@ -1,0 +1,10 @@
+{
+ "checked_utc": "2026-11-25T11:01:02Z",
+ "training_snapshot": "see provenance.json",
+ "n_added": 0,
+ "n_removed": 0,
+ "n_new_discoveries_on_list": 2,
+ "added": {},
+ "removed": {},
+ "verdict": "too few changes since training (need >= 10); run again in a few months"
+}

@@ -1,0 +1,30 @@
+{
+ "max_abs_feature_change": {
+  "phys_albedo_prior_median": 0.07000914795255368,
+  "phys_albedo_prior_logsd": 0.22083247505110393,
+  "phys_density_prior_mean": 0.07006382461770144,
+  "phys_density_prior_sd": 0.07987227878983544,
+  "phys_v_inf_kms": 0.0,
+  "phys_v_imp_kms": 0.0,
+  "phys_log10_e_spec_jkg": 0.0,
+  "phys_log10_mass_kg_mean": 0.0348769067008039,
+  "phys_log10_mass_kg_sd": 0.020665939278421253,
+  "phys_log10_ke_mt_mean": 0.034876906700802124,
+  "phys_log10_ke_mt_sd": 0.020665939278421253,
+  "has_phys_mass": 0.0
+ },
+ "modes": {
+  "pha": {
+   "pr_auc_old": 0.7977,
+   "pr_auc_new": 0.7965,
+   "pr_auc_delta": -0.0012,
+   "logit_corr": 0.9921
+  },
+  "sentry": {
+   "pr_auc_old": 0.5695,
+   "pr_auc_new": 0.5715,
+   "pr_auc_delta": 0.0019,
+   "logit_corr": 0.9944
+  }
+ }
+}

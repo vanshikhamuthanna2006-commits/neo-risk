@@ -20,8 +20,9 @@ B. Physical priors
   population mixture.  NO size is inferred from H (H is a label-defining quantity in Mode A).
 * Specific impact energy from the Opik encounter velocity, U^2 = 3 - T_E (a, e, i only).
 * Mass / kinetic-energy distributions only where a diameter is *measured* (mask otherwise).
-* Prior values are approximate literature values (see ``TAXON_PRIORS``); they are configurable
-  and must be checked against the cited sources before publication.
+* Prior values for the S and C complexes come from Thomas et al. 2011 (albedo) and Carry 2012
+  (density); the X complex, "other" and the unknown-taxonomy mixture are stated assumptions (see
+  ``TAXON_PRIORS``).  All are configurable.
 """
 from __future__ import annotations
 
@@ -280,9 +281,20 @@ def extract_uncertainty_features(cov_df: pd.DataFrame, index: pd.Index, cfg: Unc
 # Approximate literature values -- VERIFY before publication:
 #   albedo: NEO thermal surveys (e.g. Thomas et al. 2011 AJ 142:85; Mainzer et al. 2011 ApJ 743:156)
 #   density: Carry (2012) PSS 73:98 bulk-density compilation
+# Sources
+#   Albedo (NEO population): Thomas et al. 2011, AJ 142, 85 (ExploreNEOs V): S 0.26 (+0.04/-0.03),
+#     C 0.13 (+0.06/-0.05; only 5 objects, hence the wide spread), Q 0.29, V 0.42, D 0.02.
+#   Density: Carry 2012, Planet. Space Sci. 73, 98, Table 3 (estimates better than 20%):
+#     S 2.72 +- 0.54, C 1.33 +- 0.58 g/cm3.
+#   X complex: deliberately broad, an ASSUMPTION spanning its sub-types. Albedo goes from P (~0.05) to
+#     E (~0.5); Carry 2012 densities are X 1.85, Xe 2.60, Xk 4.22, Xc 4.86.
+#   "other" and UNKNOWN_MIXTURE are assumptions (not from a single source); they only set the
+#     prior for objects without a taxonomy and are reported as such.
+# The tree models depend on these only through per-class constants (albedo order C < X < S) and
+# through the mass and energy priors of the ~2% of objects with a measured diameter.
 TAXON_PRIORS: dict[str, dict[str, float]] = {
-    "C": {"albedo_median": 0.06, "albedo_sigma_ln": 0.45, "density_mean": 1.4, "density_sd": 0.5},
-    "S": {"albedo_median": 0.25, "albedo_sigma_ln": 0.30, "density_mean": 2.7, "density_sd": 0.5},
+    "C": {"albedo_median": 0.13, "albedo_sigma_ln": 0.45, "density_mean": 1.33, "density_sd": 0.58},
+    "S": {"albedo_median": 0.26, "albedo_sigma_ln": 0.30, "density_mean": 2.72, "density_sd": 0.54},
     "X": {"albedo_median": 0.15, "albedo_sigma_ln": 0.70, "density_mean": 2.6, "density_sd": 1.0},
     "other": {"albedo_median": 0.15, "albedo_sigma_ln": 0.80, "density_mean": 2.0, "density_sd": 0.8},
 }

@@ -197,3 +197,15 @@ def test_no_h_used_anywhere():
     import src.uncertainty as U
     src = inspect.getsource(U)
     assert '"H"' not in src and "abs_mag" not in src
+
+
+def test_taxon_priors_match_cited_literature():
+    """Priors pinned to their sources (loop R1):
+    Thomas et al. 2011, AJ 142, 85 (NEO albedo by complex): S 0.26 (+0.04/-0.03), C 0.13 (+0.06/-0.05).
+    Carry 2012, P&SS 73, 98, Table 3 (density, <20% precision): S 2.72 +- 0.54, C 1.33 +- 0.58 g/cm3."""
+    from src.uncertainty import TAXON_PRIORS as P
+    assert P["S"]["albedo_median"] == pytest.approx(0.26) and P["C"]["albedo_median"] == pytest.approx(0.13)
+    assert P["S"]["density_mean"] == pytest.approx(2.72) and P["S"]["density_sd"] == pytest.approx(0.54)
+    assert P["C"]["density_mean"] == pytest.approx(1.33) and P["C"]["density_sd"] == pytest.approx(0.58)
+    # albedo order C < X < S is what the tree models can use; keep it explicit
+    assert P["C"]["albedo_median"] < P["X"]["albedo_median"] < P["S"]["albedo_median"]

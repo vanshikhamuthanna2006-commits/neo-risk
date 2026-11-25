@@ -1,0 +1,22 @@
+\begin{table*}[t]
+\centering
+\small
+\caption{Mode A (non-circular PHA), temporal split: test performance over 5 seeds.}
+\label{tab:pha_temporal_all}
+\begin{tabular}{lcccccc}
+\toprule
+Model & PR-AUC & ROC-AUC & Recall@1\%FPR & Cost/1k & Brier & $\Delta$PR-AUC \\
+\midrule
+Naive (MOID + $H$) & 0.998 \scriptsize{[0.996, 0.999]} & 1.000 \scriptsize{[1.000, 1.000]} & 1.000 \scriptsize{[1.000, 1.000]} & 2.6 \scriptsize{[2.1, 3.2]} & 0.0006 \scriptsize{[0.0004, 0.0008]} & +0.478 \scriptsize{[+0.432, +0.510]} \\
+\midrule
+Static orbit only & 0.187 \scriptsize{[0.164, 0.221]} & 0.903 \scriptsize{[0.892, 0.914]} & 0.216 \scriptsize{[0.173, 0.254]} & 684.3 \scriptsize{[679.2, 689.6]} & 0.0225 \scriptsize{[0.0218, 0.0230]} & -0.334 \scriptsize{[-0.375, -0.291]} \\
+Static leakage-free & 0.520 \scriptsize{[0.488, 0.566]} & 0.979 \scriptsize{[0.976, 0.982]} & 0.559 \scriptsize{[0.514, 0.603]} & 165.5 \scriptsize{[139.7, 195.6]} & 0.0105 \scriptsize{[0.0100, 0.0111]} & (ref.) \\
++ N-body dynamics & 0.484 \scriptsize{[0.451, 0.533]} & 0.976 \scriptsize{[0.973, 0.980]} & 0.548 \scriptsize{[0.489, 0.588]} & \textbf{158.1} \scriptsize{[132.8, 184.5]} & 0.0110 \scriptsize{[0.0104, 0.0115]} & -0.036 \scriptsize{[-0.057, -0.010]} \\
++ dynamics + uncertainty & \textbf{0.543} \scriptsize{[0.512, 0.586]} & \textbf{0.983} \scriptsize{[0.980, 0.985]} & \textbf{0.615} \scriptsize{[0.573, 0.660]} & 164.8 \scriptsize{[137.6, 197.8]} & \textbf{0.0102} \scriptsize{[0.0097, 0.0107]} & +0.022 \scriptsize{[-0.006, +0.055]} \\
++ asym.\ focal loss & 0.507 \scriptsize{[0.475, 0.552]} & 0.978 \scriptsize{[0.973, 0.982]} & 0.573 \scriptsize{[0.532, 0.621]} & 187.5 \scriptsize{[153.8, 225.0]} & 0.0108 \scriptsize{[0.0102, 0.0114]} & -0.014 \scriptsize{[-0.046, +0.019]} \\
+Dual-branch ResMLP & 0.426 \scriptsize{[0.394, 0.471]} & 0.970 \scriptsize{[0.966, 0.975]} & 0.463 \scriptsize{[0.418, 0.523]} & 195.3 \scriptsize{[166.4, 226.9]} & 0.0117 \scriptsize{[0.0112, 0.0123]} & -0.095 \scriptsize{[-0.134, -0.050]} \\
+Proposed ensemble & 0.511 \scriptsize{[0.476, 0.556]} & 0.981 \scriptsize{[0.978, 0.983]} & 0.546 \scriptsize{[0.505, 0.600]} & 175.6 \scriptsize{[140.3, 212.0]} & 0.0107 \scriptsize{[0.0101, 0.0112]} & -0.009 \scriptsize{[-0.045, +0.027]} \\
+\bottomrule
+\end{tabular}
+\par\vspace{2pt}\footnotesize Mean over seeds; brackets: 95\% paired stratified-bootstrap CI of the seed-averaged metric. Bold: best leakage-free model. The naive row uses label-defining inputs and is shown only to expose circularity. Test set per seed: $n=6474$, positives $=104$. Cost/1k uses $C_{FN}{:}C_{FP}=100{:}1$ at the Bayes threshold; best trivial policy: 984.0.
+\end{table*}
