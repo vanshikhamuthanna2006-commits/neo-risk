@@ -10,3 +10,5 @@ __pycache__/
 /tests/web/node_modules/
 /tests/web/package-lock.json
 /loop/shots/
+/loop/last_verify.txt
+/loop/e2e.txt
