@@ -136,9 +136,14 @@ a { color: var(--accent); }
       </div>
       <div class="muted" id="count"></div>
       <div class="tbl-wrap"><table id="tbl"><thead></thead><tbody></tbody></table></div>
-      <div class="row" style="margin-top:8px"><button class="icon-btn" id="more">Show more</button></div>
+      <div class="row" style="margin-top:8px"><button class="icon-btn" id="more">Show more</button>
+        <button class="icon-btn" id="csv" title="Download every object matching the current filters">Download CSV</button></div>
     </div>
     <div class="card" id="detail"><p class="muted">Select an object to see its risk breakdown.</p></div>
+  </div>
+  <div class="card hidden" id="compare-card">
+    <div class="row" style="justify-content:space-between"><h2 style="margin:0">Compare</h2><button class="icon-btn" id="unpin-all">Clear</button></div>
+    <div class="tbl-wrap" id="compare"></div>
   </div>
 </section>
 
@@ -190,6 +195,12 @@ a { color: var(--accent); }
     </div>
     <div class="chart" id="delta"></div>
     <details style="margin-top:10px"><summary class="muted">Table view</summary><div class="tbl-wrap" id="delta-tbl"></div></details>
+  </div>
+  <div class="card">
+    <h2>Are the probabilities honest? (calibration)</h2>
+    <p class="sub">All objects split into 10 equal-size groups by predicted probability (out-of-fold). For each group: the average prediction against how often those objects really are on the target list. Points on the diagonal mean "a 30% prediction comes true 30% of the time". Log scales; a group with no positives is drawn hollow on the bottom edge.</p>
+    <div class="legend" id="calib-legend"></div>
+    <div class="chart" id="calib"></div>
   </div>
   <div class="card">
     <h2>What the full model relies on</h2>
@@ -265,7 +276,7 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;",
 const SVGNS = "http://www.w3.org/2000/svg";
 const el = (tag, attrs = {}, parent) => { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
 
-const state = { mode: "sentry", tab: "explore", sortKey: "pfull", sortDir: -1, limit: 50, sel: null, split: "stratified", stratum: "all" };
+const state = { mode: "sentry", tab: "explore", sortKey: "pfull", sortDir: -1, limit: 50, sel: null, split: "stratified", stratum: "all", pins: [] };
 let O, S, N;              // objects (columnar), summary, count
 const MODEL_LABEL = { naive: "Naive (uses MOID + H)", static: "Leak-free static", full: "+ dynamics + uncertainty" };
 const MODEL_VAR = { full: "--s1", static: "--s2", naive: "--s3" };
@@ -376,7 +387,8 @@ function renderDetail() {
   const full = pF(i), stat = pS(i);
   const dist = v => v == null ? "–" : `${fmt(v, 4)} au (${(v * 389.17).toFixed(1)} LD)`;
   $("#detail").innerHTML = `
-    <h2 style="margin-bottom:2px">${esc(O.name[i] || O.pdes[i])}</h2>
+    <div class="row" style="justify-content:space-between;margin:0"><h2 style="margin-bottom:2px">${esc(O.name[i] || O.pdes[i])}</h2>
+      <button class="icon-btn" id="pin" ${state.pins.includes(i) ? "disabled" : ""}>${state.pins.includes(i) ? "Pinned" : "Pin to compare"}</button></div>
     <p class="muted">${esc(O.cls[i])} · first observed ${esc(O.first[i])} · arc ${O.arc[i] == null ? "–" : O.arc[i].toLocaleString()} days${O.short[i] ? " (short arc)" : ""}</p>
     <div class="tiles">
       <div class="tile"><div class="k">Full model p(${targetName()})</div><div class="v">${pct(full, full < 0.01 ? 2 : 1)}</div><div class="d">calibrated, out-of-fold</div></div>
@@ -665,9 +677,9 @@ function renderGaps() {
 // ------------------------------------------------------------------ wiring
 function renderAll() {
   if (!O) return;
-  if (state.tab === "explore") { renderTable(); renderDetail(); }
+  if (state.tab === "explore") { renderTable(); renderDetail(); renderCompare(); }
   if (state.tab === "decide") renderDecide();
-  if (state.tab === "results") { renderPR(); renderDelta(); renderImp(); }
+  if (state.tab === "results") { renderPR(); renderDelta(); renderCalib(); renderImp(); }
   if (state.tab === "leak") renderLeak();
   if (state.tab === "gaps") renderGaps();
 }
@@ -686,6 +698,81 @@ $("#m-sentry").onclick = () => setMode("sentry"); $("#m-pha").onclick = () => se
 let qT; $("#q").oninput = () => { clearTimeout(qT); qT = setTimeout(() => { state.limit = 50; renderTable(); }, 120); };
 ["#f-short", "#f-pos", "#f-cls"].forEach(s => $(s).onchange = () => { state.limit = 50; renderTable(); });
 $("#more").onclick = () => { state.limit += 100; renderTable(); };
+
+// ---- CSV export: every object matching the filters, in the current mode
+$("#csv").onclick = () => {
+  const q = v => { const s = v == null ? "" : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const hdr = ["designation", "name", "class", "arc_days", "first_obs", "a_au", "e", "i_deg", "p_leakfree", "p_full", "conformal_set", "label", "label_kind"];
+  const SETN = { haz: "hazardous", benign: "benign", follow: "follow-up", atypical: "follow-up (atypical)" };
+  const lines = [hdr.join(",")].concat(filtered().map(i => [O.pdes[i], O.name[i], O.cls[i], O.arc[i], O.first[i], O.a[i], O.e[i], O.i[i],
+    pS(i), pF(i), SETN[confSet(i)] || "", y(i), targetName()].map(q).join(",")));
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([lines.join("\n") + "\n"], { type: "text/csv" }));
+  a.download = `neo_${state.mode}_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+};
+
+// ---- compare pinned objects (up to 3)
+function renderCompare() {
+  const P = state.pins;
+  $("#compare-card").classList.toggle("hidden", P.length === 0);
+  if (!P.length) return;
+  const rows = [
+    ["Class", i => esc(O.cls[i])], ["First observed", i => esc(O.first[i])], ["Arc (days)", i => O.arc[i] == null ? "–" : O.arc[i].toLocaleString()],
+    [`Full model p(${targetName()})`, i => `<b>${pct(pF(i), pF(i) < 0.01 ? 2 : 1)}</b>`], ["Leak-free baseline p", i => pct(pS(i), pS(i) < 0.01 ? 2 : 1)],
+    ["Conformal set", i => { const s = confSet(i); return s ? SET_TXT[s][0] : "–"; }],
+    ["a · e · i", i => `${fmt(O.a[i], 3)} au · ${fmt(O.e[i], 3)} · ${fmt(O.i[i], 1)}°`],
+    ["Nominal min. Earth distance", i => O.dmin[i] == null ? "–" : `${fmt(O.dmin[i], 4)} au`],
+    ["Clones: P(d < 0.05 au)", i => O.hasu[i] ? pct(O.up05[i], 0) : "–"],
+    ["Measured diameter", i => O.diam[i] != null ? fmt(O.diam[i], 2) + " km" : "–"],
+    [`Truth: ${targetName()} (audit)`, i => y(i) ? "yes" : "no"],
+  ];
+  $("#compare").innerHTML = `<table><thead><tr><th></th>${P.map(i => `<th data-pdes="${esc(O.pdes[i])}" data-pfull="${pF(i)}">${esc(O.name[i] || O.pdes[i])}
+      <button class="icon-btn" data-unpin="${i}" style="padding:1px 7px;margin-left:6px" aria-label="Remove ${esc(O.pdes[i])} from comparison">×</button></th>`).join("")}</tr></thead>
+    <tbody>${rows.map(([lab, f]) => `<tr style="cursor:default"><td class="muted">${lab}</td>${P.map(i => `<td>${f(i)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+  $$("#compare [data-unpin]").forEach(b => b.onclick = () => { state.pins = state.pins.filter(x => x !== +b.dataset.unpin); renderCompare(); renderDetail(); });
+}
+$("#unpin-all").onclick = () => { state.pins = []; renderCompare(); renderDetail(); };
+document.addEventListener("click", e => {
+  if (e.target.id !== "pin" || state.sel == null || state.pins.includes(state.sel)) return;
+  state.pins = [...state.pins, state.sel].slice(-3); renderCompare(); renderDetail();
+});
+
+// ---- calibration (reliability) chart: 10 equal-count bins of the out-of-fold probabilities
+function calibBins(pArr, yArr, nB = 10) {
+  const idx = pArr.map((p, i) => [p, i]).sort((a, b) => a[0] - b[0] || a[1] - b[1]), n = idx.length, out = [];
+  for (let b = 0; b < nB; b++) { const sl = idx.slice(Math.floor(b * n / nB), Math.floor((b + 1) * n / nB));
+    out.push({ pred: sl.reduce((s, q) => s + q[0], 0) / sl.length, obs: sl.reduce((s, q) => s + yArr[q[1]], 0) / sl.length, n: sl.length,
+               pos: sl.reduce((s, q) => s + yArr[q[1]], 0) }); }
+  return out;
+}
+function renderCalib() {
+  const box = $("#calib"); box.innerHTML = "";
+  const yArr = state.mode === "pha" ? O.pha : O.sentry;
+  const W = Math.max(300, box.clientWidth || 700), H = Math.round(Math.max(260, Math.min(380, W * 0.5))), m = { l: 56, r: 20, t: 12, b: 42 };
+  const lo = 1e-4, L = v => Math.log10(Math.max(lo, v)), x0 = L(lo), x1 = 0;
+  const xs = v => m.l + (L(v) - x0) / (x1 - x0) * (W - m.l - m.r), ys = v => H - m.b - (L(v) - x0) / (x1 - x0) * (H - m.t - m.b);
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Calibration: predicted versus observed frequency" }, box);
+  const ticks = [1e-4, 1e-3, 1e-2, 1e-1, 1], tf = v => v >= 0.01 ? (100 * v) + "%" : (100 * v).toFixed(v < 0.001 ? 2 : 1) + "%";
+  axisFrame(svg, W, H, m, xs, ys, ticks, ticks, "Average predicted probability (log)", "Observed frequency (log)", tf, tf);
+  el("line", { x1: xs(lo), y1: ys(lo), x2: xs(1), y2: ys(1), stroke: css("--neutral"), "stroke-dasharray": "4 4" }, svg);
+  const tip = document.createElement("div"); tip.className = "tip"; box.appendChild(tip);
+  const series = [["static", O[`p_${state.mode}_static`]], ["full", O[`p_${state.mode}_full`]]];
+  for (const [k, arr] of series) {
+    const bins = calibBins(arr, yArr), col = css(MODEL_VAR[k]);
+    el("path", { d: bins.map((b, j) => `${j ? "L" : "M"}${xs(b.pred).toFixed(1)},${ys(b.obs).toFixed(1)}`).join(""), fill: "none", stroke: col, "stroke-width": 2, opacity: 0.85 }, svg);
+    bins.forEach((b, j) => {
+      const c = el("circle", { cx: xs(b.pred), cy: ys(b.obs), r: 5, fill: b.pos ? col : css("--surface"), stroke: col, "stroke-width": 2,
+        "data-model": k, "data-bin": j, "data-pred": b.pred, "data-obs": b.obs }, svg);
+      const show = () => { const r = svg.getBoundingClientRect(), sx = W / r.width;
+        tip.innerHTML = `<b>${MODEL_LABEL[k]}</b>, group ${j + 1} of 10<br>predicted ${pct(b.pred, 2)} · observed ${pct(b.obs, 2)}<br>${b.pos} of ${b.n.toLocaleString()} on the list`;
+        tip.style.opacity = 1; tip.style.left = Math.min(xs(b.pred) / sx + 12, r.width - tip.offsetWidth - 4) + "px"; tip.style.top = Math.max(0, ys(b.obs) / sx - 40) + "px"; };
+      c.addEventListener("pointerenter", show); c.addEventListener("pointerdown", show); c.addEventListener("pointerleave", () => tip.style.opacity = 0);
+    });
+  }
+  $("#calib-legend").innerHTML = ["static", "full"].map(k => `<span><i style="border-color:${css(MODEL_VAR[k])}"></i>${MODEL_LABEL[k]}</span>`).join("") +
+    `<span><i style="border-color:${css("--neutral")};border-top-style:dashed"></i>perfect calibration</span>`;
+}
 $("#ratio").oninput = renderDecide; $("#ah").oninput = renderConformal; $("#ab").oninput = renderConformal;
 $$("[data-split]").forEach(b => b.onclick = () => { state.split = b.dataset.split; $$("[data-split]").forEach(x => x.setAttribute("aria-pressed", x === b)); renderDelta(); });
 $$("[data-stratum]").forEach(b => b.onclick = () => { state.stratum = b.dataset.stratum; $$("[data-stratum]").forEach(x => x.setAttribute("aria-pressed", x === b)); renderDelta(); });

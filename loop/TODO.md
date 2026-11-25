@@ -6,6 +6,6 @@
 - [x] W2 **Atlas depth and scale.** An ecliptic grid with 1/2/3 au rings and labels, a "Top-risk orbits" overlay toggle (orbit lines of the top 50), and Sun corona and lens glow polish. Verify: e2e checks for the toggles, line counts and no errors.
 - [x] W3 **Timeline.** A scrubber spanning 1950–2100, with flyby event markers you can click to jump to, plus a date input. Verify: e2e checks that a date input sets the simulation time and that a marker opens its date.
 - [x] W4 **Shareable views.** The URL encodes the time, selection, filter, colour mode and camera, with a "Copy link" button. Verify: e2e reloads a crafted URL and checks the restored state.
-- [ ] W5 **Explorer professional tools.** CSV export of the filtered table, a calibration (reliability) chart, and a side-by-side comparison of two objects. Verify: e2e checks the download content, the chart and the comparison.
+- [x] W5 **Explorer professional tools.** CSV export of the filtered table, a calibration (reliability) chart, and a side-by-side comparison of two objects. Verify: e2e checks the download content, the chart and the comparison.
 - [ ] W6 **Quality and accessibility.** Adaptive resolution when the frame rate drops, a keyboard shortcut overlay (?), an accessible name on every control, and visible focus outlines. Verify: e2e checks for unnamed buttons (none allowed), that "?" opens help, and the resolution step-down logic.
 - [ ] W7 **Guided tour.** Five steps (Sun and NEOs → risk colour → Apophis → flyby → explorer). Verify: e2e walks every step and checks for no errors.

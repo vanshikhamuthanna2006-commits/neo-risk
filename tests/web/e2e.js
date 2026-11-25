@@ -243,6 +243,43 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
   ok('cost slider updates', /^10 : 1$/.test((await e.textContent('#ratio-v')).trim()), await e.textContent('#ratio-v'));
   await e.$eval('#ah', el => { el.value = '0.10'; el.dispatchEvent(new Event('input')); });
   ok('conformal slider updates', /0\.10/.test(await e.textContent('#ah-v')));
+  // W5a: CSV export of the filtered table (all rows, not just the visible 50)
+  {
+    const O = JSON.parse(fs.readFileSync('/home/user/neo-risk/docs/data/objects.json', 'utf8'));
+    await e.click('nav.tabs [data-tab="explore"]');
+    await e.click('#f-short'); await e.waitForTimeout(300);                       // filter: short arcs only
+    const nShown = +(await e.textContent('#count')).match(/^([\d,]+)/)[1].replace(/,/g, '');
+    const [dl] = await Promise.all([e.waitForEvent('download'), e.click('#csv')]);
+    const csv = fs.readFileSync(await dl.path(), 'utf8').trim().split('\n');
+    const hdr = csv[0].split(',');
+    ok('CSV: one row per filtered object', csv.length - 1 === nShown, `${csv.length - 1} rows vs ${nShown}`);
+    ok('CSV: header has designation and both scores', ['designation', 'p_full', 'p_leakfree', 'label'].every(h => hdr.includes(h)));
+    const row = csv[1].match(/("([^"]|"")*"|[^,]*)(,|$)/g).map(x => x.replace(/,$/, '').replace(/^"|"$/g, '').replace(/""/g, '"'));
+    const k = O.pdes.indexOf(row[hdr.indexOf('designation')]);
+    ok('CSV: values match objects.json', k >= 0 && Math.abs(+row[hdr.indexOf('p_full')] - O.p_pha_full[k]) < 1e-6 && O.short[k] === 1,
+      `${row[hdr.indexOf('designation')]} ${row[hdr.indexOf('p_full')]} vs ${O.p_pha_full[k]}`);
+    await e.click('#f-short');
+    // W5b: calibration chart, recomputed independently (10 equal-count bins of p_full, Mode A)
+    await e.click('nav.tabs [data-tab="results"]'); await e.waitForTimeout(400);
+    const pts = await e.$$eval('#calib [data-bin]', els => els.map(x => [x.dataset.model, +x.dataset.bin, +x.dataset.pred, +x.dataset.obs]));
+    const full = pts.filter(q => q[0] === 'full');
+    const idx = O.p_pha_full.map((p, i) => [p, i]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const nB = 10, n = idx.length, exp = [];
+    for (let b2 = 0; b2 < nB; b2++) { const sl = idx.slice(Math.floor(b2 * n / nB), Math.floor((b2 + 1) * n / nB));
+      exp.push([sl.reduce((s, q) => s + q[0], 0) / sl.length, sl.reduce((s, q) => s + O.pha[q[1]], 0) / sl.length]); }
+    ok('calibration: 10 bins per model', full.length === 10 && pts.length === 20, `${pts.length}`);
+    ok('calibration: bins match an independent recomputation', full.every(([, b2, pr, obs]) => Math.abs(pr - exp[b2][0]) < 1e-9 && Math.abs(obs - exp[b2][1]) < 1e-9));
+    // W5c: compare pinned objects
+    await e.click('nav.tabs [data-tab="explore"]');
+    await e.fill('#q', '101955'); await e.dispatchEvent('#q', 'input'); await e.waitForTimeout(400);
+    await e.click('#tbl tbody tr[data-i]'); await e.click('#pin');
+    await e.fill('#q', '99942'); await e.dispatchEvent('#q', 'input'); await e.waitForTimeout(400);
+    await e.click('#tbl tbody tr[data-i]'); await e.click('#pin'); await e.waitForTimeout(200);
+    const cmp = await e.$$eval('#compare [data-pdes]', els => els.map(x => [x.dataset.pdes, +x.dataset.pfull]));
+    ok('compare: two pinned objects', cmp.length === 2 && cmp.map(c => c[0]).sort().join() === '101955,99942', JSON.stringify(cmp));
+    ok('compare: scores match objects.json', cmp.every(([d, p]) => Math.abs(p - O.p_pha_full[O.pdes.indexOf(d)]) < 1e-9));
+    await e.fill('#q', ''); await e.dispatchEvent('#q', 'input');
+  }
   await e.click('#theme'); await e.waitForTimeout(200);
   ok('theme toggles', await e.evaluate(() => document.documentElement.getAttribute('data-theme')) !== null);
   await e.click('a[href="index.html"]'); await e.waitForURL(/index\.html/);
