@@ -1,0 +1,9 @@
+[project]
+name = "neo-risk"
+version = "0.1.0"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["network: hits the live JPL APIs (deselected by default; run with -m network)"]
+addopts = "-m 'not network' -q"

@@ -1,0 +1,28 @@
+{
+ "n_selected": 6631,
+ "wall_s": 729.5,
+ "has_cov_rate_in_selected": 0.9962298295882974,
+ "has_unc_clones_in_selected": 0.9962298295882974,
+ "pha_rate_selected": 0.06183079475192279,
+ "pha_rate_not_selected": 0.05863834213912234,
+ "frac_unbound_mean": 0.0005250908265213442,
+ "frac_lost_mean": 0.00012772479564032696,
+ "p_dmin_lt_005_mean": 0.2526089160963348,
+ "selection_z": 1.0139754681715127,
+ "gate": "PASS",
+ "max_rank_corr_vs_audit": 0.9835601632919063,
+ "top_corr": {
+  "phys_v_inf_kms": 0.9835601632919063,
+  "phys_v_imp_kms": 0.9835601632919063,
+  "phys_log10_e_spec_jkg": 0.9835601632919063,
+  "unc_dmin_q05_au": 0.837902952119827
+ },
+ "probe_X_subset": {
+  "r2_H": 0.903986777638357,
+  "r2_moid": 0.7791530194936601
+ },
+ "probe_X_plus_unc_subset": {
+  "r2_H": 0.9120306228245895,
+  "r2_moid": 0.8208785072816389
+ }
+}

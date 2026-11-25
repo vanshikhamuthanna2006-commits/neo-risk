@@ -1,0 +1,22 @@
+\begin{table*}[t]
+\centering
+\small
+\caption{Mode A (non-circular PHA), stratified split: test performance over 5 seeds (short-arc NEOs, data arc $<30$ d).}
+\label{tab:pha_stratified_short_arc}
+\begin{tabular}{lcccccc}
+\toprule
+Model & PR-AUC & ROC-AUC & Recall@1\%FPR & Cost/1k & Brier & $\Delta$PR-AUC \\
+\midrule
+Naive (MOID + $H$) & 0.973 \scriptsize{[0.948, 0.994]} & 1.000 \scriptsize{[1.000, 1.000]} & 1.000 \scriptsize{[1.000, 1.000]} & 18.0 \scriptsize{[1.7, 39.4]} & 0.0008 \scriptsize{[0.0005, 0.0012]} & +0.717 \scriptsize{[+0.624, +0.764]} \\
+\midrule
+Static orbit only & 0.122 \scriptsize{[0.088, 0.191]} & 0.863 \scriptsize{[0.833, 0.888]} & 0.208 \scriptsize{[0.144, 0.284]} & 714.4 \scriptsize{[703.2, 728.4]} & 0.0131 \scriptsize{[0.0126, 0.0137]} & -0.134 \scriptsize{[-0.212, -0.075]} \\
+Static leakage-free & 0.255 \scriptsize{[0.213, 0.346]} & \textbf{0.970} \scriptsize{[0.960, 0.977]} & 0.392 \scriptsize{[0.320, 0.504]} & \textbf{143.9} \scriptsize{[107.1, 183.1]} & 0.0059 \scriptsize{[0.0055, 0.0064]} & (ref.) \\
++ N-body dynamics & 0.236 \scriptsize{[0.199, 0.332]} & 0.966 \scriptsize{[0.956, 0.974]} & 0.344 \scriptsize{[0.264, 0.440]} & 157.7 \scriptsize{[118.8, 199.4]} & 0.0061 \scriptsize{[0.0056, 0.0065]} & -0.019 \scriptsize{[-0.054, +0.017]} \\
++ dynamics + uncertainty & 0.238 \scriptsize{[0.203, 0.332]} & 0.969 \scriptsize{[0.960, 0.977]} & 0.408 \scriptsize{[0.308, 0.504]} & 154.0 \scriptsize{[114.9, 195.0]} & 0.0060 \scriptsize{[0.0056, 0.0064]} & -0.017 \scriptsize{[-0.050, +0.025]} \\
++ asym.\ focal loss & 0.252 \scriptsize{[0.215, 0.347]} & 0.965 \scriptsize{[0.953, 0.975]} & 0.408 \scriptsize{[0.312, 0.504]} & 160.3 \scriptsize{[118.3, 205.6]} & 0.0060 \scriptsize{[0.0056, 0.0064]} & -0.003 \scriptsize{[-0.039, +0.041]} \\
+Dual-branch ResMLP & 0.208 \scriptsize{[0.168, 0.287]} & 0.951 \scriptsize{[0.936, 0.964]} & 0.368 \scriptsize{[0.284, 0.456]} & 199.2 \scriptsize{[156.9, 239.2]} & 0.0066 \scriptsize{[0.0062, 0.0071]} & -0.047 \scriptsize{[-0.112, +0.009]} \\
+Proposed ensemble & \textbf{0.274} \scriptsize{[0.233, 0.369]} & 0.964 \scriptsize{[0.953, 0.975]} & \textbf{0.424} \scriptsize{[0.328, 0.520]} & 181.2 \scriptsize{[134.6, 225.9]} & \textbf{0.0059} \scriptsize{[0.0055, 0.0062]} & +0.019 \scriptsize{[-0.027, +0.072]} \\
+\bottomrule
+\end{tabular}
+\par\vspace{2pt}\footnotesize Mean over seeds; brackets: 95\% paired stratified-bootstrap CI of the seed-averaged metric. Bold: best leakage-free model. The naive row uses label-defining inputs and is shown only to expose circularity. Test set per seed: $n=3689$, positives $=25$.
+\end{table*}

@@ -1,0 +1,26 @@
+  trained pha/stratified seed 0
+  trained pha/stratified seed 1
+  trained pha/stratified seed 2
+  trained pha/stratified seed 3
+  trained pha/stratified seed 4
+done pha_stratified in 432s
+  trained pha/temporal seed 0
+  trained pha/temporal seed 1
+  trained pha/temporal seed 2
+  trained pha/temporal seed 3
+  trained pha/temporal seed 4
+done pha_temporal in 438s
+  trained sentry/stratified seed 0
+  trained sentry/stratified seed 1
+  trained sentry/stratified seed 2
+  trained sentry/stratified seed 3
+  trained sentry/stratified seed 4
+done sentry_stratified in 328s
+  trained sentry/temporal seed 0
+  trained sentry/temporal seed 1
+  trained sentry/temporal seed 2
+  trained sentry/temporal seed 3
+  trained sentry/temporal seed 4
+done sentry_temporal in 348s
+wrote results/ablation_table.tex
+figures regenerated

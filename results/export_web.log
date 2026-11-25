@@ -1,0 +1,7 @@
+pha/naive: {'pr_auc': 0.9988, 'roc_auc': 0.9999, 'recall_at_1fpr': 0.9984}  (3s)
+pha/static: {'pr_auc': 0.7483, 'roc_auc': 0.9768, 'recall_at_1fpr': 0.5415}  (7s)
+pha/full: {'pr_auc': 0.7848, 'roc_auc': 0.9799, 'recall_at_1fpr': 0.5901}  (9s)
+sentry/naive: {'pr_auc': 0.6346, 'roc_auc': 0.9668, 'recall_at_1fpr': 0.422}  (4s)
+sentry/static: {'pr_auc': 0.4465, 'roc_auc': 0.925, 'recall_at_1fpr': 0.2544}  (4s)
+sentry/full: {'pr_auc': 0.589, 'roc_auc': 0.9526, 'recall_at_1fpr': 0.3799}  (7s)
+wrote /home/user/neo-risk/docs/data {'summary.json': '0.0 MB', 'objects.json': '9.9 MB'}

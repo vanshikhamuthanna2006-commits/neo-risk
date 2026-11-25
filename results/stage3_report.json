@@ -1,0 +1,28 @@
+{
+ "n_selected": 43160,
+ "wall_s": 5546.7,
+ "has_cov_rate_in_selected": 0.9968721037998146,
+ "has_unc_clones_in_selected": 0.9967794253938832,
+ "pha_rate_selected": 0.05912882298424467,
+ "pha_rate_not_selected": NaN,
+ "frac_unbound_mean": 0.0008207437536316096,
+ "frac_lost_mean": 6.682782826991469e-05,
+ "p_dmin_lt_005_mean": 0.249625366835083,
+ "selection_z": NaN,
+ "gate": "PASS",
+ "max_rank_corr_vs_audit": 0.9835601632919063,
+ "top_corr": {
+  "phys_v_inf_kms": 0.9835601632919063,
+  "phys_v_imp_kms": 0.9835601632919063,
+  "phys_log10_e_spec_jkg": 0.9835601632919063,
+  "unc_dmin_q05_au": 0.8473214144172481
+ },
+ "probe_X_subset": {
+  "r2_H": 0.914167504521529,
+  "r2_moid": 0.8197282926731467
+ },
+ "probe_X_plus_unc_subset": {
+  "r2_H": 0.9248955841682314,
+  "r2_moid": 0.8476088689881588
+ }
+}

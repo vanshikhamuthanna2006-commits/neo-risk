@@ -1,0 +1,9 @@
+# raw/processed data and simulation caches (several GB; rebuilt by the scripts)
+/data/
+# per-seed prediction cache (rebuilt by run_evaluation.py)
+/results/preds/
+/neo-risk.zip
+__pycache__/
+*.pyc
+.pytest_cache/
+/results/*.parquet

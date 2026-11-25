@@ -1,0 +1,210 @@
+{
+ "naive_moid_h": {
+  "feature_set": "naive",
+  "kind": "lgbm_logloss",
+  "n_features": 43,
+  "platt": [
+   0.9983154614745999,
+   0.02147623925027386
+  ],
+  "conformal_q": {
+   "0": 0.08444497429496578,
+   "1": 0.9944507329856407
+  },
+  "n_cal": {
+   "0": 6060,
+   "1": 414
+  },
+  "best_iter": 181,
+  "epochs": null,
+  "focal_chosen": null,
+  "focal_grid_val": null
+ },
+ "static_orbit_only": {
+  "feature_set": "static_orbit",
+  "kind": "lgbm_logloss",
+  "n_features": 12,
+  "platt": [
+   0.9403439695942014,
+   -0.10913534386151594
+  ],
+  "conformal_q": {
+   "0": 0.11506828574034733,
+   "1": 0.9927084510514209
+  },
+  "n_cal": {
+   "0": 6060,
+   "1": 414
+  },
+  "best_iter": 260,
+  "epochs": null,
+  "focal_chosen": null,
+  "focal_grid_val": null
+ },
+ "static_leakfree": {
+  "feature_set": "static",
+  "kind": "lgbm_logloss",
+  "n_features": 41,
+  "platt": [
+   0.9386246707169665,
+   -0.07724373249772597
+  ],
+  "conformal_q": {
+   "0": 0.12974923173589048,
+   "1": 0.9949519716553088
+  },
+  "n_cal": {
+   "0": 6060,
+   "1": 414
+  },
+  "best_iter": 202,
+  "epochs": null,
+  "focal_chosen": null,
+  "focal_grid_val": null
+ },
+ "static_dyn": {
+  "feature_set": "static+dyn",
+  "kind": "lgbm_logloss",
+  "n_features": 60,
+  "platt": [
+   0.9012521272264028,
+   -0.019432105457619503
+  ],
+  "conformal_q": {
+   "0": 0.12994112288100723,
+   "1": 0.9922758409789467
+  },
+  "n_cal": {
+   "0": 6060,
+   "1": 414
+  },
+  "best_iter": 242,
+  "epochs": null,
+  "focal_chosen": null,
+  "focal_grid_val": null
+ },
+ "static_dyn_unc": {
+  "feature_set": "static+dyn+unc",
+  "kind": "lgbm_logloss",
+  "n_features": 91,
+  "platt": [
+   0.9422527057299447,
+   0.007330146279633281
+  ],
+  "conformal_q": {
+   "0": 0.13423459208444455,
+   "1": 0.9943126240360092
+  },
+  "n_cal": {
+   "0": 6060,
+   "1": 414
+  },
+  "best_iter": 195,
+  "epochs": null,
+  "focal_chosen": null,
+  "focal_grid_val": null
+ },
+ "static_dyn_unc_focal": {
+  "feature_set": "static+dyn+unc",
+  "kind": "lgbm_focal",
+  "n_features": 91,
+  "platt": [
+   0.9050355073211465,
+   -0.08006494728331608
+  ],
+  "conformal_q": {
+   "0": 0.1421974042989138,
+   "1": 0.989470042852583
+  },
+  "n_cal": {
+   "0": 6060,
+   "1": 414
+  },
+  "best_iter": 192,
+  "epochs": null,
+  "focal_chosen": [
+   0.0,
+   1.0
+  ],
+  "focal_grid_val": {
+   "g0.0_l1.0": [
+    0.32967032967032966,
+    0.5133410868034345
+   ],
+   "g1.0_l5.0": [
+    0.31868131868131866,
+    0.5187078241698397
+   ],
+   "g2.0_l10.0": [
+    0.2802197802197802,
+    0.4684111305403886
+   ],
+   "g1.0_l20.0": [
+    0.3131868131868132,
+    0.4567954716804392
+   ]
+  }
+ },
+ "dual_resmlp_focal": {
+  "feature_set": "static+dyn+unc",
+  "kind": "mlp_focal",
+  "n_features": 91,
+  "platt": [
+   1.534886701158591,
+   -1.7296406908879356
+  ],
+  "conformal_q": {
+   "0": 0.20094014548537031,
+   "1": 0.9923723398124524
+  },
+  "n_cal": {
+   "0": 6060,
+   "1": 414
+  },
+  "best_iter": null,
+  "epochs": 16,
+  "focal_chosen": [
+   1.0,
+   5.0
+  ],
+  "focal_grid_val": {
+   "g0.0_l1.0": [
+    0.24175824175824176,
+    0.39661102728325276
+   ],
+   "g1.0_l5.0": [
+    0.25274725274725274,
+    0.39140839159871127
+   ],
+   "g2.0_l10.0": [
+    0.2087912087912088,
+    0.37024071775088624
+   ],
+   "g1.0_l20.0": [
+    0.24725274725274726,
+    0.36340718126317
+   ]
+  }
+ },
+ "proposed_ensemble": {
+  "feature_set": "static+dyn+unc",
+  "kind": "ensemble",
+  "n_features": 91,
+  "platt": [
+   1.2474463165845104,
+   -0.5175581312279061
+  ],
+  "conformal_q": {
+   "0": 0.16241067252510732,
+   "1": 0.9920912271277595
+  },
+  "n_cal": {
+   "0": 6060,
+   "1": 414
+  },
+  "best_iter": null,
+  "epochs": null,
+  "focal_chosen": null,
+  "focal_grid_val": null
+ }
+}

@@ -1,0 +1,20 @@
+\begin{table}[t]
+\centering
+\small
+\caption{Mode B (Sentry risk list), temporal split: Mondrian conformal coverage vs follow-up burden.}
+\label{tab:conf_sentry_temporal}
+\begin{tabular}{llccc}
+\toprule
+Model & $\alpha_H$ & Haz.\ coverage & Benign coverage & Follow-up rate \\
+\midrule
+Static leakage-free & 0.01 & 0.988 & 0.900 & 0.455 \\
+Static leakage-free & 0.05 & 0.946 & 0.900 & 0.258 \\
+Static leakage-free & 0.10 & 0.899 & 0.900 & 0.170 \\
+\midrule
+Proposed ensemble & 0.01 & 0.991 & 0.899 & 0.380 \\
+Proposed ensemble & 0.05 & 0.944 & 0.899 & 0.215 \\
+Proposed ensemble & 0.10 & 0.894 & 0.899 & 0.135 \\
+\bottomrule
+\end{tabular}
+\par\vspace{2pt}\footnotesize Mondrian split conformal; $\alpha_B=0.10$. Mean over seeds; calibration positives per seed $\approx 425$.
+\end{table}

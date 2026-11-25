@@ -1,0 +1,132 @@
+{
+ "target": "sentry",
+ "unc_coverage": 0.04856348470806302,
+ "n": 43160,
+ "prevalence": 0.05227062094531974,
+ "stratified": {
+  "wall_s": 44.3,
+  "test_n": 6474,
+  "test_pos": 338,
+  "table": {
+   "naive_moid_h": {
+    "PR-AUC": 0.6078,
+    "ROC-AUC": 0.963,
+    "haz_cov": 0.9852,
+    "ben_cov": 0.9068,
+    "frac_uncertain": 0.1267
+   },
+   "static_orbit_only": {
+    "PR-AUC": 0.3771,
+    "ROC-AUC": 0.8928,
+    "haz_cov": 0.9911,
+    "ben_cov": 0.895,
+    "frac_uncertain": 0.454
+   },
+   "static_leakfree": {
+    "PR-AUC": 0.4708,
+    "ROC-AUC": 0.925,
+    "haz_cov": 0.9941,
+    "ben_cov": 0.9016,
+    "frac_uncertain": 0.3554
+   },
+   "static_dyn": {
+    "PR-AUC": 0.4769,
+    "ROC-AUC": 0.9265,
+    "haz_cov": 0.9911,
+    "ben_cov": 0.8963,
+    "frac_uncertain": 0.3318
+   },
+   "static_dyn_unc": {
+    "PR-AUC": 0.4873,
+    "ROC-AUC": 0.9285,
+    "haz_cov": 0.9911,
+    "ben_cov": 0.8981,
+    "frac_uncertain": 0.335
+   },
+   "static_dyn_unc_focal": {
+    "PR-AUC": 0.4608,
+    "ROC-AUC": 0.9214,
+    "haz_cov": 0.997,
+    "ben_cov": 0.8949,
+    "frac_uncertain": 0.3647
+   },
+   "dual_resmlp_focal": {
+    "PR-AUC": 0.3963,
+    "ROC-AUC": 0.9168,
+    "haz_cov": 0.9882,
+    "ben_cov": 0.9009,
+    "frac_uncertain": 0.3475
+   },
+   "proposed_ensemble": {
+    "PR-AUC": 0.4663,
+    "ROC-AUC": 0.9264,
+    "haz_cov": 0.9793,
+    "ben_cov": 0.8975,
+    "frac_uncertain": 0.264
+   }
+  }
+ },
+ "temporal": {
+  "wall_s": 53.3,
+  "test_n": 6474,
+  "test_pos": 438,
+  "table": {
+   "naive_moid_h": {
+    "PR-AUC": 0.5878,
+    "ROC-AUC": 0.9518,
+    "haz_cov": 0.984,
+    "ben_cov": 0.8988,
+    "frac_uncertain": 0.1829
+   },
+   "static_orbit_only": {
+    "PR-AUC": 0.3573,
+    "ROC-AUC": 0.8742,
+    "haz_cov": 0.9886,
+    "ben_cov": 0.8976,
+    "frac_uncertain": 0.4303
+   },
+   "static_leakfree": {
+    "PR-AUC": 0.459,
+    "ROC-AUC": 0.9041,
+    "haz_cov": 0.9954,
+    "ben_cov": 0.8981,
+    "frac_uncertain": 0.5019
+   },
+   "static_dyn": {
+    "PR-AUC": 0.4746,
+    "ROC-AUC": 0.9107,
+    "haz_cov": 0.9954,
+    "ben_cov": 0.9019,
+    "frac_uncertain": 0.45
+   },
+   "static_dyn_unc": {
+    "PR-AUC": 0.4588,
+    "ROC-AUC": 0.91,
+    "haz_cov": 1.0,
+    "ben_cov": 0.9041,
+    "frac_uncertain": 0.489
+   },
+   "static_dyn_unc_focal": {
+    "PR-AUC": 0.4556,
+    "ROC-AUC": 0.9072,
+    "haz_cov": 0.9932,
+    "ben_cov": 0.9059,
+    "frac_uncertain": 0.4479
+   },
+   "dual_resmlp_focal": {
+    "PR-AUC": 0.3654,
+    "ROC-AUC": 0.8878,
+    "haz_cov": 0.9977,
+    "ben_cov": 0.9066,
+    "frac_uncertain": 0.4649
+   },
+   "proposed_ensemble": {
+    "PR-AUC": 0.4602,
+    "ROC-AUC": 0.9119,
+    "haz_cov": 1.0,
+    "ben_cov": 0.9059,
+    "frac_uncertain": 0.4422
+   }
+  }
+ }
+}
