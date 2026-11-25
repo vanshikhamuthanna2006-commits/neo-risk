@@ -105,6 +105,19 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
     return out; });
   ok('HUD panels do not overlap', clash.length === 0, clash.join(', '));
 
+  // V1: discovery history — only objects first observed on/before the date are shown
+  {
+    const O = JSON.parse(fs.readFileSync('/home/user/neo-risk/docs/data/objects.json', 'utf8'));
+    const known = O.first.filter(s => !/^\d{4}-\d{2}-\d{2}$/.test(s) || s <= '2000-01-01').length;
+    await p.click('#t-disc');
+    await p.fill('#jump', '2000-01-01'); await p.dispatchEvent('#jump', 'change'); await p.waitForTimeout(500);
+    const got = await p.evaluate(() => __neo.discCount);
+    ok('discovery: count on 2000-01-01 matches objects.json', got === known, `${got} vs ${known}`);
+    ok('discovery: counter is shown', (await p.textContent('#count')).replace(/,/g, '').includes(String(known)));
+    await p.click('#t-disc'); await p.waitForTimeout(200);
+    ok('discovery: off shows all again', /43,160 of 43,160/.test(await p.textContent('#count')));
+  }
+
   // W3: timeline — date input, flyby markers, scrubber
   await p.fill('#jump', '2029-04-13'); await p.dispatchEvent('#jump', 'change'); await p.waitForTimeout(200);
   const jdJump = await p.evaluate(() => __neo.simJD);

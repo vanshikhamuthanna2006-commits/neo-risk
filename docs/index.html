@@ -303,6 +303,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
       <label><input type="checkbox" id="t-labels" checked> Labels</label>
       <label><input type="checkbox" id="t-grid" checked> Scale grid (au)</label>
       <label><input type="checkbox" id="t-top"> Orbits of the 50 riskiest</label>
+      <label title="Show only asteroids already observed on the simulation date"><input type="checkbox" id="t-disc"> Discovery history</label>
     </div>
   </div>
   <div class="count" id="count"></div>
@@ -677,8 +678,8 @@ function updatePlanets(jd) {
 // asteroids (GPU Kepler propagation)
 // =====================================================================================
 const astVS = `
-  attribute vec3 aEl1; attribute vec3 aEl2; attribute vec4 aAux;
-  uniform float uT, uPix, uMode, uFilter, uThr, uHide, uSel;
+  attribute vec3 aEl1; attribute vec3 aEl2; attribute vec4 aAux; attribute float aDisc;
+  uniform float uT, uPix, uMode, uFilter, uThr, uHide, uSel, uDisc;
   varying vec3 vC; varying float vA;
   const float K = 0.01720209895;
   void main(){
@@ -689,6 +690,7 @@ const astVS = `
     float vis = 1.0;
     if (uFilter == 1.0) vis = isPha; else if (uFilter == 2.0) vis = isSen; else if (uFilter == 3.0) vis = step(uThr, risk);
     float id = float(gl_VertexID);
+    if (uDisc > 0.5 && aDisc > uT) vis = 0.0;                 // not yet discovered on this date
     if (a <= 0.0 || vis < 0.5 || abs(id - uHide) < 0.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; return; }
     float n = K / (a * sqrt(a));
     float M = mod(M0 + n * (uT - epoch), 6.2831853);
@@ -716,7 +718,7 @@ const astFS = `varying vec3 vC; varying float vA;
     float a = smoothstep(0.5, 0.05, d) * vA; float core = smoothstep(0.22, 0.0, d);
     gl_FragColor = vec4(vC * (a + core * 0.6), a); }`;
 const astMat = new THREE.ShaderMaterial({
-  uniforms: { uT: { value: 0 }, uPix: { value: DPR }, uMode: { value: 0 }, uFilter: { value: 0 }, uThr: { value: 1 }, uHide: { value: -1 }, uSel: { value: -1 } },
+  uniforms: { uT: { value: 0 }, uPix: { value: DPR }, uMode: { value: 0 }, uFilter: { value: 0 }, uThr: { value: 1 }, uHide: { value: -1 }, uSel: { value: -1 }, uDisc: { value: 0 } },
   vertexShader: astVS, fragmentShader: astFS, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
 });
 let EL = null, NOBJ = 0, OBJ = null, FLY = null;
@@ -910,7 +912,8 @@ function updateClock() {
 // =====================================================================================
 // UI: filters, modes, search, card
 // =====================================================================================
-let modeRisk = 0, filter = 0;
+let modeRisk = 0, filter = 0, discCount = 0, lastDisc = 0;
+$("#t-disc").onchange = () => { astMat.uniforms.uDisc.value = $("#t-disc").checked ? 1 : 0; applyFilter(); };
 $("#filters").onclick = e => { const b = e.target.closest("button"); if (!b) return; filter = +b.dataset.f;
   $("#filters").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b)); applyFilter(); };
 $("#modes").onclick = e => { const b = e.target.closest("button"); if (!b) return; modeRisk = +b.dataset.m;
@@ -925,11 +928,16 @@ function applyFilter() {
   if (!EL) return;
   let n = 0;
   for (let k = 0; k < NOBJ; k++) { if (visible(k)) n++; }
-  $("#count").textContent = `Showing ${n.toLocaleString()} of ${NOBJ.toLocaleString()} asteroids`;
+  $("#count").textContent = discOn() ? `Known on ${jdToStr(simJD, false).slice(0, 11)}: ${n.toLocaleString()} of ${NOBJ.toLocaleString()} asteroids`
+                                     : `Showing ${n.toLocaleString()} of ${NOBJ.toLocaleString()} asteroids`;
+  discCount = n;
 }
 function risk(k, m = modeRisk) { return EL[k * 10 + 7 + m]; }
+let DISC = null;                                   // discovery JD - J2000 - T_BASE per object (-1e9 = unknown)
+const discOn = () => $("#t-disc").checked && DISC;
 function visible(k) {
   if (EL[k * 10] <= 0) return false;
+  if (discOn() && DISC[k] > simJD - J2000 - T_BASE) return false;
   const f = EL[k * 10 + 9];
   return filter === 0 || (filter === 1 && (f & 1)) || (filter === 2 && (f & 2)) || (filter === 3 && risk(k) >= thrTop[modeRisk]);
 }
@@ -1507,6 +1515,10 @@ async function load() {
   // names / details in the background
   fetch("data/objects.json").then(r => r.json()).then(o => {
     OBJ = o; OBJ._lname = OBJ.name.map((n, k) => (n + " " + OBJ.pdes[k]).toLowerCase().replace(/[()]/g, ""));
+    // discovery dates -> GPU attribute (unknown dates count as always known)
+    DISC = new Float32Array(NOBJ);
+    for (let k = 0; k < NOBJ; k++) { const s = OBJ.first[k]; DISC[k] = /^\d{4}-\d{2}-\d{2}$/.test(s) ? dateToJD(s) - J2000 - T_BASE : -1e9; }
+    astGeo.setAttribute("aDisc", new THREE.BufferAttribute(DISC, 1));
     const fb = Q.get("flyby"), ob = Q.get("obj");
     if (fb) { const j = FLY.flybys.findIndex(f => f.des === fb); if (j >= 0) { enterFlyby(j); if (Q.has("ft")) fJD = +Q.get("ft"); } }
     else if (ob) { const k = OBJ.pdes.indexOf(ob); if (k >= 0) select(k, !Q.has("cam")); }
@@ -1591,6 +1603,7 @@ function frame(now) {
     if (!reduceMotion) corona.material.rotation += dt * 0.012;
     updateLabels(); updateClock();
     if (!tlDrag) $("#tl").value = simJD;
+    if (discOn() && now - lastDisc > 250) { lastDisc = now; applyFilter(); }   // the known-asteroid count changes with the date
     if (urlReady && now - lastURL > 1500) { lastURL = now; updateURL(); }   // address bar always holds the current view
   } else {
     updateFlyby(dt);
@@ -1615,6 +1628,7 @@ window.__neo = {
   get simJD() { return simJD; }, get mode() { return mode; }, get selected() { return selected; }, get playing() { return playing; },
   get ready() { return !!OBJ && intro.t >= 1; },                               // data loaded and intro finished
   get view() { return { f: filter, m: modeRisk, cam: [...camera.position.toArray(), ...controls.target.toArray()] }; }, shareURL,
+  get discCount() { return discCount; },
   get tour() { return { steps: TOUR.length, i: tour.i }; },
   get quality() { return { level: quality.level, pixelRatio: renderer.getPixelRatio(), bloom: bloom.enabled }; }, adapt,
   get gridVisible() { return grid.visible; }, get topOrbits() { return { count: TOP.count, rows: TOP.rows }; }, topRows,

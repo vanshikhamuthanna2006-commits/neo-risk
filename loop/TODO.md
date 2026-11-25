@@ -9,3 +9,9 @@
 - [x] W5 **Explorer professional tools.** CSV export of the filtered table, a calibration (reliability) chart, and a side-by-side comparison of two objects. Verify: e2e checks the download content, the chart and the comparison.
 - [x] W6 **Quality and accessibility.** Adaptive resolution when the frame rate drops, a keyboard shortcut overlay (?), an accessible name on every control, and visible focus outlines. Verify: e2e checks for unnamed buttons (none allowed), that "?" opens help, and the resolution step-down logic.
 - [x] W7 **Guided tour.** Five steps (Sun and NEOs → risk colour → Apophis → flyby → explorer). Verify: e2e walks every step and checks for no errors.
+
+## Round 2 (branch loop/site-v3)
+- [x] V1 **Discovery history.** A toggle that shows only the asteroids known on the simulation date (first observation on or before it), with a live counter. Verify: the counter for 2000-01-01 equals a count computed from objects.json.
+- [ ] V2 **Uncertainty cloud.** Each selected high-risk asteroid shows its ~32 covariance clones, anchored to the displayed position. Verify in data: each cloud's centre equals that object's elements in orbits.bin. Verify in e2e: the clones are present, and their spread grows over 20 years.
+- [ ] V3 **Upcoming close approaches** (JPL cad.api, next 24 months, <= 0.05 au). Shown as a list next to the featured flybys; clicking an entry jumps to its date and selects the asteroid. Verify: the list is sorted and within 0.05 au, and a click sets the time and the selection.
+- [ ] V4 **Earth-centred view.** A frame switch that keeps Earth at the origin. Verify: in the Earth frame the scene origin equals Earth's position, and switching back restores the Sun-centred frame.
