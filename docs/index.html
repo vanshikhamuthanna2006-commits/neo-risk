@@ -109,6 +109,24 @@ dl.kv dd { margin: 0; text-align: right; font-family: var(--mono); font-size: 12
 /* ---------- time bar */
 #timebar { bottom: 18px; left: 50%; transform: translateX(-50%); padding: 8px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: center; max-width: calc(100vw - 36px); }
 #timebar .sep { width: 1px; height: 22px; background: var(--line-2); margin: 0 2px; }
+.date-in { background: rgba(255,255,255,.05); border: 1px solid var(--line-2); border-radius: 9px; color: var(--ink); padding: 5px 8px; font: 12px var(--mono); color-scheme: dark; }
+#timeline { bottom: 70px; left: 50%; transform: translateX(-50%); width: min(760px, calc(100vw - 720px)); min-width: 360px; padding: 8px 14px 6px; }
+.tl-track { position: relative; height: 22px; margin-top: calc((var(--lanes, 1) - 1) * 12px); }
+#tl { position: absolute; inset: 0; width: 100%; margin: 0; accent-color: var(--accent); background: transparent; }
+.marks { position: absolute; inset: 0; pointer-events: none; }
+.mark { position: absolute; top: 1px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; border: 2px solid #0b0f18;
+  background: var(--accent); box-shadow: 0 0 10px rgba(255,181,71,.7); cursor: pointer; pointer-events: auto; padding: 0; }
+.mark:hover, .mark:focus-visible { transform: scale(1.4); }
+.mark.now { background: #3dff8e; box-shadow: 0 0 10px #3dff8e; width: 3px; height: 16px; border-radius: 2px; border: 0; margin-left: -1.5px; top: -2px; pointer-events: none; }
+.tl-scale { display: flex; justify-content: space-between; font-size: 10px; color: var(--ink-3); margin-top: 2px; }
+@media (max-width: 1180px) { #timeline { left: 18px; right: 18px; width: auto; min-width: 0; transform: none; } }
+@media (max-width: 1180px) and (min-width: 761px) {
+  /* three top panels must fit side by side: brand | clock | side */
+  #brand { max-width: 250px; } #brand > p:not(.note) { display: none; }
+  #side { width: 270px; }
+  #clock { min-width: 0; padding: 8px 12px; } #clock .date { font-size: 15px; }
+}
+@media (max-width: 900px) { #timeline { display: none; } }
 .icon { width: 34px; height: 30px; border-radius: 9px; border: 1px solid var(--line-2); background: transparent; color: var(--ink); cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center; }
 .icon:hover { background: rgba(255,255,255,.07); }
@@ -148,7 +166,7 @@ dl.kv dd { margin: 0; text-align: right; font-family: var(--mono); font-size: 12
 #flybar .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: center; }
 #scrub { width: 100%; accent-color: var(--accent); margin: 6px 0 2px; }
 .scale { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink-3); font-family: var(--mono); }
-body.flyby #brand, body.flyby #side, body.flyby #card, body.flyby #timebar, body.flyby #enc, body.flyby #clock { display: none !important; }
+body.flyby #brand, body.flyby #side, body.flyby #card, body.flyby #timebar, body.flyby #enc, body.flyby #clock, body.flyby #timeline { display: none !important; }
 body.flyby #fly, body.flyby #flybar { display: block; }
 
 /* ---------- intro + loader */
@@ -282,6 +300,16 @@ body.flyby #fly, body.flyby #flybar { display: block; }
   <div class="chips" id="speeds"></div>
   <span class="sep"></span>
   <button class="chip" id="now">Now</button>
+  <input type="date" id="jump" class="date-in" min="1950-01-01" max="2099-12-31" aria-label="Jump to a date" title="Jump to a date">
+</div>
+
+<!-- timeline 1950-2100 with flyby markers -->
+<div id="timeline" class="hud glass" aria-label="Timeline 1950 to 2100">
+  <div class="tl-track">
+    <input type="range" id="tl" min="2433282.5" max="2488069.5" step="1" aria-label="Simulation date, 1950 to 2100">
+    <div class="marks" id="tl-marks"></div>
+  </div>
+  <div class="tl-scale mono"><span>1950</span><span>1975</span><span>2000</span><span>2025</span><span>2050</span><span>2075</span><span>2100</span></div>
 </div>
 
 <!-- flyby HUD -->
@@ -794,7 +822,25 @@ function syncPlay() {
 $("#play").onclick = () => { playing = !playing; syncPlay(); };
 $("#rev").onclick = () => { dir *= -1; syncPlay(); };
 $("#now").onclick = () => { simJD = jdNow(); setSpeed(1); dir = 1; playing = true; syncPlay(); };
-const JD_MIN = 2415020.5, JD_MAX = 2488069.5;           // 1900 .. 2100
+const JD_MIN = 2433282.5, JD_MAX = 2488069.5;           // 1950 .. 2100 (timeline range)
+const dateToJD = s => { const [y, m, d] = s.split("-").map(Number); return Date.UTC(y, m - 1, d) / 86400000 + 2440587.5; };
+$("#jump").addEventListener("change", e => { if (!e.target.value) return; simJD = Math.min(JD_MAX, Math.max(JD_MIN, dateToJD(e.target.value))); });
+let tlDrag = false;
+$("#tl").addEventListener("input", e => { tlDrag = true; simJD = +e.target.value; });
+$("#tl").addEventListener("change", () => { tlDrag = false; });
+function renderTimelineMarks() {
+  const span = JD_MAX - JD_MIN, at = jd => (100 * (jd - JD_MIN) / span).toFixed(3) + "%";
+  // markers closer than 14 px stack into separate rows so each stays clickable
+  const W = $("#tl-marks").clientWidth || 600, lanes = [], lane = [];
+  FLY.flybys.map((f, j) => [(f.jd_ca - JD_MIN) / span * W, j]).sort((a, b) => a[0] - b[0]).forEach(([x, j]) => {
+    let l = 0; while (lanes[l] != null && x - lanes[l] < 14) l++; lanes[l] = x; lane[j] = l; });
+  $("#timeline").style.setProperty("--lanes", Math.max(1, lanes.length));
+  $("#tl-marks").innerHTML = `<span class="mark now" style="left:${at(jdNow())}" title="Today"></span>` +
+    FLY.flybys.map((f, j) => `<button class="mark" data-j="${j}" style="left:${at(f.jd_ca)};top:${1 - 12 * lane[j]}px" aria-label="${esc(f.name)} flyby, ${esc(f.cd.slice(0, 11))}"
+      title="${esc(f.name)} · ${esc(f.cd.slice(0, 11))} · ${fmtKm(f.dist_km)} km"></button>`).join("");
+  $("#tl-marks").onclick = e => { const b = e.target.closest(".mark[data-j]"); if (!b) return;
+    const f = FLY.flybys[+b.dataset.j]; simJD = f.jd_ca; setSpeed(86400); playing = false; syncPlay(); select(f.row, true); };
+}
 function updateClock() {
   $("#date").textContent = jdToStr(simJD);
   const live = playing && speed === 1 && dir === 1 && Math.abs(simJD - jdNow()) < 2 / 1440;
@@ -816,7 +862,7 @@ $("#modes").onclick = e => { const b = e.target.closest("button"); if (!b) retur
   buildTop(); };
 $("#t-orbits").onchange = () => planets.forEach(P => P.line.visible = $("#t-orbits").checked);
 $("#open-side").onclick = () => { document.body.classList.remove("enc-open"); document.body.classList.toggle("side-open"); };
-$("#open-enc").onclick = () => { document.body.classList.remove("side-open"); document.body.classList.toggle("enc-open"); };
+$("#open-enc").onclick = () => { document.body.classList.remove("side-open"); document.body.classList.toggle("enc-open"); layoutHud(); };
 function applyFilter() {
   astMat.uniforms.uMode.value = modeRisk; astMat.uniforms.uFilter.value = filter; astMat.uniforms.uThr.value = thrTop[modeRisk];
   if (!EL) return;
@@ -918,9 +964,24 @@ function placeCard() {
   const c = $("#card");
   if (innerWidth <= 760) { c.style.top = ""; c.style.maxHeight = ""; return; }
   const top = $("#brand").getBoundingClientRect().bottom + 12;
-  c.style.top = top + "px"; c.style.maxHeight = `calc(100vh - ${Math.round(top) + 80}px)`;
+  c.style.top = top + "px";
+  layoutHud();                                            // height capped above the timeline / time bar
 }
-addEventListener("resize", () => { if (selected >= 0) placeCard(); });
+// the timeline rides just above the time bar, whatever height the bar wraps to
+function layoutHud() {
+  const tb = $("#timebar").getBoundingClientRect(), tl = $("#timeline");
+  tl.style.bottom = Math.round(innerHeight - tb.top + 8) + "px";
+  const tlOn = getComputedStyle(tl).display !== "none";
+  const floor = tlOn ? tl.getBoundingClientRect().top : tb.top;          // nothing above may reach below this
+  for (const s of ["#side", "#card"]) {
+    const e = $(s); if (getComputedStyle(e).display === "none" || innerWidth <= 760) { e.style.maxHeight = ""; continue; }
+    e.style.maxHeight = Math.max(160, floor - 8 - e.getBoundingClientRect().top) + "px"; e.style.overflowY = "auto";
+  }
+  const enc = $("#enc");
+  if (innerWidth <= 1180 && innerWidth > 760) enc.style.bottom = Math.round(innerHeight - floor + 8) + "px"; else enc.style.bottom = "";
+}
+addEventListener("resize", () => { layoutHud(); if (selected >= 0) placeCard(); if (FLY) renderTimelineMarks(); });
+layoutHud();
 
 // "Why this score": TreeSHAP contributions from the fold model that scored the object
 let XP = null;
@@ -1310,7 +1371,7 @@ async function load() {
     const r = []; for (let k = 0; k < NOBJ; k++) r.push(EL[k * 10 + 7 + m]);
     r.sort((a, b) => b - a); thrTop[m] = r[Math.floor(NOBJ * 0.01)];
   }
-  applyFilter(); renderEncounters();
+  applyFilter(); renderEncounters(); renderTimelineMarks();
   $("#intro-sub").textContent = `${NOBJ.toLocaleString()} near-Earth asteroids · ${jdToStr(jdNow(), false)}`;
   setTimeout(() => $("#intro").classList.add("out"), reduceMotion ? 300 : 2200);
   // names / details in the background
@@ -1358,6 +1419,7 @@ function frame(now) {
     corona.scale.setScalar(Math.max(5, camera.position.length() * 0.13));
     if (!reduceMotion) corona.material.rotation += dt * 0.012;
     updateLabels(); updateClock();
+    if (!tlDrag) $("#tl").value = simJD;
   } else {
     updateFlyby(dt);
   }
@@ -1372,7 +1434,7 @@ addEventListener("resize", () => {
 });
 // expose for automated checks
 window.__neo = {
-  get simJD() { return simJD; }, get mode() { return mode; }, get selected() { return selected; },
+  get simJD() { return simJD; }, get mode() { return mode; }, get selected() { return selected; }, get playing() { return playing; },
   get ready() { return !!OBJ && intro.t >= 1; },                               // data loaded and intro finished
   get gridVisible() { return grid.visible; }, get topOrbits() { return { count: TOP.count, rows: TOP.rows }; }, topRows,
   select: k => select(k, true), enterFlyby: j => enterFlyby(j), exitFlyby,

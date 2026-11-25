@@ -94,8 +94,41 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
   await p.click('#modes [data-m="0"]'); await p.click('#t-top');
   ok('overlay toggles off', await p.evaluate(() => __neo.topOrbits.count) === 0);
 
+  // layout guard: no two visible HUD panels may overlap
+  const clash = await p.evaluate(() => {
+    const ids = ['#brand', '#clock', '#side', '#card', '#timebar', '#timeline', '#enc'];
+    const R = ids.map(s => [s, document.querySelector(s)]).filter(([, e]) => e && getComputedStyle(e).display !== 'none' && e.offsetWidth)
+      .map(([s, e]) => [s, e.getBoundingClientRect()]);
+    const out = [];
+    for (let i = 0; i < R.length; i++) for (let j = i + 1; j < R.length; j++) { const a = R[i][1], b = R[j][1];
+      if (a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1) out.push(R[i][0] + '/' + R[j][0]); }
+    return out; });
+  ok('HUD panels do not overlap', clash.length === 0, clash.join(', '));
+
+  // W3: timeline — date input, flyby markers, scrubber
+  await p.fill('#jump', '2029-04-13'); await p.dispatchEvent('#jump', 'change'); await p.waitForTimeout(200);
+  const jdJump = await p.evaluate(() => __neo.simJD);
+  ok('date input jumps to 2029-04-13', Math.abs(jdJump - 2462239.5) < 1.5, `JD ${jdJump.toFixed(2)}`);
+  const flyJson = JSON.parse(fs.readFileSync('/home/user/neo-risk/docs/data/flybys.json', 'utf8')).flybys;
+  const nMarks = await p.$$eval('#timeline .mark[data-j]', m => m.length);   // flyby markers (the "today" tick is separate)
+  ok('timeline has one marker per flyby', nMarks === flyJson.length, `${nMarks}`);
+  // every flyby marker must be clickable (not covered by a neighbour)
+  const covered = await p.$$eval('#timeline .mark[data-j]', ms => ms.filter(m => { const r = m.getBoundingClientRect();
+    const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return top !== m; }).map(m => m.dataset.j));
+  ok('no flyby marker is covered', covered.length === 0, `covered: ${covered}`);
+  await p.click('#timeline .mark[data-j="0"]'); await p.waitForTimeout(400);
+  const after = await p.evaluate(() => ({ jd: __neo.simJD, sel: __neo.selected }));
+  ok('marker jumps to its closest approach', Math.abs(after.jd - flyJson[0].jd_ca) < 1.5, `${after.jd.toFixed(2)} vs ${flyJson[0].jd_ca.toFixed(2)}`);
+  ok('marker selects its asteroid', after.sel === flyJson[0].row);
+  await p.$eval('#tl', el => { el.value = el.min; el.dispatchEvent(new Event('input')); }); await p.waitForTimeout(150);
+  const jdMin = await p.evaluate(() => __neo.simJD);
+  ok('scrubber start = 1950', Math.abs(jdMin - 2433282.5) < 2, `${jdMin.toFixed(1)}`);
+  await p.keyboard.press('Escape');
+
   // time controls
-  await p.click('#play'); const t1 = await p.evaluate(() => __neo.simJD); await p.waitForTimeout(800);
+  if (!(await p.evaluate(() => __neo.playing))) await p.click('#play');      // known state: playing
+  await p.click('#play'); ok('play button pauses', !(await p.evaluate(() => __neo.playing)));
+  const t1 = await p.evaluate(() => __neo.simJD); await p.waitForTimeout(800);
   ok('pause stops time', await p.evaluate(() => __neo.simJD) === t1);
   await p.click('#play'); await p.click('#speeds [data-s="2629800"]'); const t2 = await p.evaluate(() => __neo.simJD); await p.waitForTimeout(1000);
   const adv = await p.evaluate(() => __neo.simJD) - t2;
