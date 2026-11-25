@@ -27,5 +27,19 @@ for m in ("pha", "sentry"):
     t = {r["model"]: r for r in s["tables"][f"{m}_stratified_all"]}
     oof, test = s[m]["metrics"]["full"]["pr_auc"], t["static_dyn_unc"]["pr_auc"]
     chk(abs(oof - test) < 0.03, f"{m}: OOF PR-AUC {oof} vs test {test} differ > 0.03")
+# W1: explanations (the exact-sum property is asserted at export time against the fold models)
+x = json.load(open(D / "explain.json"))
+for m in ("pha", "sentry"):
+    xm = x[m]; nf = len(xm["names"])
+    idx = np.array(xm["idx"]).reshape(-1, 5); val = np.array(xm["val"]).reshape(-1, 5)
+    chk(len(idx) == N and len(xm["base"]) == N and len(xm["logit"]) == N, f"explain {m}: length")
+    chk((idx >= 0).all() and (idx < nf).all(), f"explain {m}: feature index out of range")
+    chk((np.diff(np.abs(val), axis=1) <= 1e-9).all(), f"explain {m}: drivers not sorted by |contribution|")
+    chk(all(n in x["labels"] for n in xm["names"]), f"explain {m}: missing labels")
+    # the explained logit, through that object's fold calibration, must give the published probability
+    ab = np.array(xm["platt"])[np.array(xm["fold"])]
+    p_rec = 1 / (1 + np.exp(-(ab[:, 0] * np.array(xm["logit"]) + ab[:, 1])))
+    err = np.abs(p_rec - np.array(o[f"p_{m}_full"], float)).max()
+    chk(err < 1e-4, f"explain {m}: calibrated logit differs from p_full by {err:.2e}")
 print("check_data:", "OK" if not errs else "\n  ".join(["FAIL"] + errs))
 sys.exit(1 if errs else 0)

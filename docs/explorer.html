@@ -393,6 +393,8 @@ function renderDetail() {
       <dt>Diameter (measured)</dt><dd>${O.diam[i] != null ? fmt(O.diam[i], 2) + " km" : "not measured"}</dd>
       <dt>Impact speed (Öpik)</dt><dd>${O.vimp[i] != null ? fmt(O.vimp[i], 1) + " km/s" : "–"}</dd>
     </dl>
+    <h3 style="margin-top:14px">Why this score</h3>
+    <div id="why-x"><p class="muted">Loading explanation…</p></div>
     <h3 style="margin-top:14px">Hidden from the model (audit only)</h3>
     <dl class="kv">
       <dt>MOID</dt><dd>${dist(O.moid[i])}</dd>
@@ -400,6 +402,30 @@ function renderDetail() {
       <dt>PHA</dt><dd>${O.pha[i] ? "yes" : "no"}</dd>
       <dt>Sentry list</dt><dd>${O.sentry[i] ? `yes · impact prob. ${sci(O.ip[i])} · Palermo ${fmt(O.ps[i], 2)}` : "no"}</dd>
     </dl>`;
+  renderWhy(i);
+}
+
+// "Why this score": TreeSHAP contributions (docs/data/explain.json, loaded on first use)
+let XP = null;
+const getExplain = () => XP || (XP = fetch("data/explain.json").then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }));
+function renderWhy(i) {
+  const box = $("#why-x"); if (!box) return;
+  getExplain().then(X => {
+    if (state.sel !== i || !$("#why-x")) return;
+    const xm = X[state.mode], o = i * 5, base = xm.base[i], logit = xm.logit[i];
+    const rows = [0, 1, 2, 3, 4].map(j => ({ lab: X.labels[xm.names[xm.idx[o + j]]] || xm.names[xm.idx[o + j]], v: xm.val[o + j], fx: xm.fx[o + j] }));
+    const rest = logit - base - rows.reduce((s, r) => s + r.v, 0);
+    const mx = Math.max(...rows.map(r => Math.abs(r.v)), Math.abs(rest), 1e-6);
+    const fx = v => v == null ? "missing" : Math.abs(v) >= 1000 || (Math.abs(v) < 0.01 && v !== 0) ? v.toExponential(2) : (+v.toPrecision(3)).toString();
+    const line = (lab, v, f, drv) => `<div ${drv ? `class="drv" data-val="${v}"` : ""} style="display:grid;grid-template-columns:minmax(0,1fr) 70px;gap:2px 10px;margin:6px 0;font-size:13px">
+        <span title="${esc(lab)}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(lab)}${f != null ? ` <span class="muted">= ${esc(f)}</span>` : ""}</span>
+        <span style="text-align:right;font-variant-numeric:tabular-nums;color:${v >= 0 ? "var(--crit)" : "var(--s1)"}">${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(2)}</span>
+        <span style="grid-column:1/-1;position:relative;height:6px;background:var(--grid);border-radius:3px">
+          <span style="position:absolute;top:0;bottom:0;${v >= 0 ? "left:50%" : "right:50%"};width:${50 * Math.abs(v) / mx}%;background:${v >= 0 ? "var(--crit)" : "var(--s1)"};border-radius:3px"></span>
+          <span style="position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--ink-2)"></span></span></div>`;
+    box.innerHTML = rows.map(r => line(r.lab, r.v, fx(r.fx), true)).join("") + line(`All other ${xm.names.length - 5} features`, rest, null, false) +
+      `<p class="muted" style="margin-top:6px">Contributions to the full model's log-odds (TreeSHAP) for ${targetName()}, from the cross-validation model that scored this object. Baseline ${base.toFixed(2)} + contributions = ${logit.toFixed(2)}. Red raises the score, blue lowers it.</p>`;
+  }).catch(() => { box.innerHTML = '<p class="muted">Explanation unavailable.</p>'; });
 }
 
 // ------------------------------------------------------------------ decision

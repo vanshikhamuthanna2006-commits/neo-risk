@@ -131,6 +131,8 @@ for tname, ys in targets.items():
                 ex["fx"][te] = np.take_along_axis(Xte.to_numpy(float), top, axis=1)
                 ex["base"][te] = c[:, -1] + m.init
                 ex["logit"][te] = z
+                ex.setdefault("fold", np.zeros(len(y), int))[te] = f
+                ex.setdefault("platt", [None] * K)[f] = [cal.a, cal.b]   # p = sigmoid(a * logit + b)
         cols[f"p_{tname}_{mname}"] = p_oof
         if mname == "full":
             cols[f"pvh_{tname}"] = pv_h; cols[f"pvb_{tname}"] = pv_b
@@ -182,7 +184,8 @@ xout = {"note": "TreeSHAP contributions to the full model's log-odds (before Pla
 for tname, ex in explain.items():
     xout["labels"] = {c: LABELS.get(c, c) for c in ex["names"]}
     xout[tname] = {"names": ex["names"], "idx": ex["idx"].ravel().tolist(), "val": np.round(ex["val"], 4).ravel().tolist(),
-                   "fx": sig4(ex["fx"]), "base": np.round(ex["base"], 4).tolist(), "logit": np.round(ex["logit"], 4).tolist()}
+                   "fx": sig4(ex["fx"]), "base": np.round(ex["base"], 4).tolist(), "logit": np.round(ex["logit"], 6).tolist(),
+                   "fold": ex["fold"].tolist(), "platt": [[float(a), float(b)] for a, b in ex["platt"]]}
 json.dump(xout, open(out_dir / "explain.json", "w"), separators=(",", ":"), allow_nan=False)
 
 # ---------------------------------------------------------------- official test-split tables

@@ -21,10 +21,10 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
   const b = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 
   // ------------------------------------------------------------------ atlas
-  const p = await page(b, { width: 1440, height: 900 });
+  const W = 960, H = 600;                                            // fewer pixels: software WebGL is the bottleneck
+  const p = await page(b, { width: W, height: H });
   await p.goto('http://localhost:8765/index.html');
-  await p.waitForFunction(() => window.__neo && window.__neo.rowOf('99942') >= 0, null, { timeout: 30000 });
-  await p.waitForTimeout(6000);                                     // intro finished
+  await p.waitForFunction(() => window.__neo && __neo.ready, null, { timeout: 60000 });   // data loaded + intro done
 
   // positional accuracy vs JPL Horizons (heliocentric, au)
   for (const [name, byJd] of Object.entries(truth)) {
@@ -49,8 +49,19 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
   ok('Enter selects Apophis', await p.evaluate(() => __neo.selected) === apo);
   ok('card shows Apophis', /Apophis/.test(await p.textContent('#card')));
   ok('URL updated', /obj=99942/.test(p.url()));
+  // W1: "why this score" drivers in the atlas card must equal explain.json for this object
+  const X = JSON.parse(fs.readFileSync('/home/user/neo-risk/docs/data/explain.json', 'utf8'));
+  await p.waitForSelector('#card .drv', { timeout: 30000 });
+  const drv = await p.$$eval('#card .drv', els => els.map(x => +x.dataset.val));
+  const want = X.sentry.val.slice(apo * 5, apo * 5 + 5);
+  ok('atlas: 5 score drivers shown', drv.length === 5, `${drv.length}`);
+  ok('atlas: drivers equal explain.json', drv.every((v, j) => Math.abs(v - want[j]) < 1e-9), `${drv} vs ${want}`);
+  await p.click('#modes [data-m="1"]'); await p.waitForTimeout(400);
+  const drvP = await p.$$eval('#card .drv', els => els.map(x => +x.dataset.val));
+  ok('atlas: drivers follow the colour mode (PHA)', drvP.every((v, j) => Math.abs(v - X.pha.val[apo * 5 + j]) < 1e-9));
+  await p.click('#modes [data-m="0"]'); await p.waitForTimeout(200);
   // click at screen centre (camera has flown to Apophis) picks something nearby
-  await p.mouse.click(720, 450); await p.waitForTimeout(300);
+  await p.mouse.click(W / 2, H / 2); await p.waitForTimeout(300);
   ok('click-to-pick selects an object', await p.evaluate(() => __neo.selected) >= 0);
   await p.keyboard.press('Escape'); await p.waitForTimeout(200);
   ok('Escape clears selection', await p.evaluate(() => __neo.selected) === -1);
@@ -97,6 +108,8 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
   }
   // encounter list button path
   await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+  // below 1180 px the list sits behind the "Close encounters" button, as a user would see it
+  if (await p.isVisible('#open-enc')) await p.click('#open-enc');
   await p.click('#enc-list .enc'); await p.waitForTimeout(400);
   ok('encounter list opens a flyby', await p.evaluate(() => __neo.mode) === 'flyby');
   await p.keyboard.press('Escape'); await p.waitForTimeout(200);
@@ -122,6 +135,14 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
   await e.goto('http://localhost:8765/explorer.html?obj=101955#explore');
   await e.waitForSelector('#loading', { state: 'detached', timeout: 30000 });
   ok('explorer ?obj= selects Bennu', /Bennu/.test(await e.textContent('#detail')));
+  {
+    const X = JSON.parse(fs.readFileSync('/home/user/neo-risk/docs/data/explain.json', 'utf8'));
+    const O = JSON.parse(fs.readFileSync('/home/user/neo-risk/docs/data/objects.json', 'utf8'));
+    const k = O.pdes.indexOf('101955');
+    await e.waitForSelector('#detail .drv', { timeout: 30000 });
+    const d = await e.$$eval('#detail .drv', els => els.map(x => +x.dataset.val));
+    ok('explorer: drivers equal explain.json (Bennu)', d.length === 5 && d.every((v, j) => Math.abs(v - X.sentry.val[k * 5 + j]) < 1e-9));
+  }
   for (const t of ['decide', 'results', 'leak', 'about', 'explore']) {
     await e.click(`nav.tabs [data-tab="${t}"]`); await e.waitForTimeout(200);
     ok(`explorer tab ${t} renders`, await e.isVisible(`#tab-${t}`));
