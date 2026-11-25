@@ -131,6 +131,7 @@ dl.kv dd { margin: 0; text-align: right; font-family: var(--mono); font-size: 12
 .lbl.planet::before { content: ""; position: absolute; left: -10px; top: 50%; width: 6px; height: 1px; background: rgba(255,255,255,.4); }
 .lbl.sel { color: var(--cyan); font-weight: 600; }
 .lbl.big { font-size: 13px; }
+.lbl.grid { font-size: 10.5px; color: rgba(160,180,220,.55); font-family: var(--mono); letter-spacing: .06em; }
 #tip { position: fixed; z-index: 20; pointer-events: none; padding: 7px 10px; font-size: 12px; opacity: 0; transition: opacity .1s; white-space: nowrap; }
 #tip b { font-weight: 600; }
 
@@ -257,6 +258,8 @@ body.flyby #fly, body.flyby #flybar { display: block; }
     <div class="toggles">
       <label><input type="checkbox" id="t-orbits" checked> Planet orbits</label>
       <label><input type="checkbox" id="t-labels" checked> Labels</label>
+      <label><input type="checkbox" id="t-grid" checked> Scale grid (au)</label>
+      <label><input type="checkbox" id="t-top"> Orbits of the 50 riskiest</label>
     </div>
   </div>
   <div class="count" id="count"></div>
@@ -489,6 +492,38 @@ const sunGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW_SUN, blend
 sunGlow.scale.setScalar(4.2); sunGroup.add(sunGlow);
 const sunGlow2 = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW_SOFT, color: 0xffa64d, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.18 }));
 sunGlow2.scale.setScalar(16); sunGroup.add(sunGlow2);
+// corona: soft rays of uneven length that turn slowly
+const CORONA = (() => {
+  const c = document.createElement("canvas"); c.width = c.height = 512;
+  const g = c.getContext("2d"); g.translate(256, 256); g.globalCompositeOperation = "lighter";
+  for (let k = 0; k < 90; k++) {
+    const a = Math.random() * TAU, len = 120 + Math.random() * 130, w = 1 + Math.random() * 3;
+    const grd = g.createLinearGradient(0, 0, Math.cos(a) * len, Math.sin(a) * len);
+    grd.addColorStop(0, "rgba(255,214,150,0.22)"); grd.addColorStop(1, "rgba(255,160,80,0)");
+    g.strokeStyle = grd; g.lineWidth = w; g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(a) * len, Math.sin(a) * len); g.stroke();
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+})();
+const corona = new THREE.Sprite(new THREE.SpriteMaterial({ map: CORONA, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.85 }));
+corona.scale.setScalar(6); sunGroup.add(corona);
+
+// =====================================================================================
+// scale grid in the ecliptic plane (au rings + 30° spokes)
+// =====================================================================================
+const GRID_AU = [1, 2, 3, 5, 10, 20, 30];
+const grid = new THREE.Group(); scene.add(grid);
+for (const r of GRID_AU) {
+  const pts = []; for (let k = 0; k <= 256; k++) { const t = k / 256 * TAU; pts.push(new THREE.Vector3(Math.cos(t) * r * AU, 0, Math.sin(t) * r * AU)); }
+  grid.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
+    new THREE.LineBasicMaterial({ color: 0x8fa3c8, transparent: true, opacity: r <= 5 ? 0.16 : 0.08, depthWrite: false })));
+}
+{
+  const seg = [];
+  for (let k = 0; k < 12; k++) { const t = k / 12 * TAU; seg.push(new THREE.Vector3(Math.cos(t) * 0.5 * AU, 0, Math.sin(t) * 0.5 * AU), new THREE.Vector3(Math.cos(t) * 5 * AU, 0, Math.sin(t) * 5 * AU)); }
+  grid.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(seg),
+    new THREE.LineBasicMaterial({ color: 0x8fa3c8, transparent: true, opacity: 0.06, depthWrite: false })));
+}
+$("#t-grid") && ($("#t-grid").onchange = () => { grid.visible = $("#t-grid").checked; });
 
 // =====================================================================================
 // planets + orbit trails
@@ -620,6 +655,42 @@ function applyOverrides(jd) {
 const thrTop = { 0: 1, 1: 1 };
 
 // =====================================================================================
+// overlay: orbits of the N highest-risk objects in the current colour mode
+// =====================================================================================
+const TOP = { rows: [], count: 0, obj: null };
+function topRows(m, n) {
+  const ks = [];
+  for (let k = 0; k < NOBJ; k++) if (EL[k * 10] > 0) ks.push(k);
+  ks.sort((a, b) => EL[b * 10 + 7 + m] - EL[a * 10 + 7 + m] || a - b);
+  return ks.slice(0, n);
+}
+function buildTop() {
+  if (TOP.obj) { scene.remove(TOP.obj); TOP.obj.geometry.dispose(); TOP.obj = null; }
+  TOP.rows = []; TOP.count = 0;
+  if (!EL || !$("#t-top").checked) return;
+  const rows = topRows(modeRisk, 50), S = 256, pos = new Float32Array(rows.length * S * 6), col = new Float32Array(rows.length * S * 8);
+  let o = 0, c = 0;
+  rows.forEach((k, rank) => {
+    const [a, e, i, O, w] = objElements(k), b = a * Math.sqrt(1 - e * e);
+    const cO = Math.cos(O), sO = Math.sin(O), cw = Math.cos(w), sw = Math.sin(w), ci = Math.cos(i), si = Math.sin(i);
+    const P = E => { const xp = a * (Math.cos(E) - e), yp = b * Math.sin(E);
+      return [((cO * cw - sO * sw * ci) * xp + (-cO * sw - sO * cw * ci) * yp) * AU, ((sw * si) * xp + (cw * si) * yp) * AU,
+              -((sO * cw + cO * sw * ci) * xp + (-sO * sw + cO * cw * ci) * yp) * AU]; };
+    const al = 0.36 - 0.26 * rank / rows.length;          // subdued: the overlay should not drown the scene
+    for (let s = 0; s < S; s++) {
+      pos.set(P(s / S * TAU), o); pos.set(P((s + 1) / S * TAU), o + 3); o += 6;
+      col.set([1.0, 0.7, 0.32, al, 1.0, 0.7, 0.32, al], c); c += 8;
+    }
+  });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("color", new THREE.BufferAttribute(col, 4));
+  TOP.obj = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  TOP.obj.frustumCulled = false; scene.add(TOP.obj);
+  TOP.rows = rows; TOP.count = rows.length;
+}
+$("#t-top").onchange = buildTop;
+
+// =====================================================================================
 // selection: orbit line + marker
 // =====================================================================================
 const selGeo = new THREE.BufferGeometry();
@@ -701,6 +772,9 @@ function updateLabels() {
     place(el, P.now, show && (!outer || camD > 60) && (outer || camD < 900));
   }
   place(label("sun", "Sun", "planet"), new THREE.Vector3(0, 0, 0), show && camD > 6);
+  const ga = -0.62;                                       // ring labels along one bearing, below the planets in priority
+  for (const r of GRID_AU) place(label("g" + r, r + " au", "grid"), new THREE.Vector3(Math.cos(ga) * r * AU, 0, Math.sin(ga) * r * AU),
+    show && grid.visible && (r <= 5 ? camD < 400 : camD > 80));
 }
 
 // =====================================================================================
@@ -738,7 +812,8 @@ $("#filters").onclick = e => { const b = e.target.closest("button"); if (!b) ret
   $("#filters").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b)); applyFilter(); };
 $("#modes").onclick = e => { const b = e.target.closest("button"); if (!b) return; modeRisk = +b.dataset.m;
   $("#modes").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b)); applyFilter();
-  if (selected >= 0) renderCard(); };
+  if (selected >= 0) renderCard();
+  buildTop(); };
 $("#t-orbits").onchange = () => planets.forEach(P => P.line.visible = $("#t-orbits").checked);
 $("#open-side").onclick = () => { document.body.classList.remove("enc-open"); document.body.classList.toggle("side-open"); };
 $("#open-enc").onclick = () => { document.body.classList.remove("side-open"); document.body.classList.toggle("enc-open"); };
@@ -829,12 +904,23 @@ function renderCard() {
       : `Position from JPL elements propagated to 2026 with this project's N-body model, then two-body motion.${dmin != null && dmin < 0.01 ? ` Earth's gravity bends this orbit at the ${Math.floor(jdToYear(2461200.5 + tmin * 365.25))} encounter, so positions after it are approximate.` : ""}`}
       Risk scores are out-of-fold model outputs, not impact probabilities.</div>`;
   $("#card").classList.add("show");
+  placeCard();
   getExplain().then(X => { if (selected === k && $("#why")) $("#why").innerHTML = whyHTML(X, k, modeRisk ? "pha" : "sentry"); })
               .catch(() => { if ($("#why")) $("#why").innerHTML = '<div class="note">Explanation unavailable.</div>'; });
   $("#c-close").onclick = () => select(-1);
   $("#c-follow").onclick = () => { follow = !follow; renderCard(); if (follow) flyTo(selNow, Math.max(1.2, camera.position.distanceTo(controls.target) * 0.5)); };
   if (fb) $("#c-fly").onclick = () => enterFlyby(FLY.flybys.indexOf(fb));
 }
+
+// The card sits under the brand panel, whatever that panel's height (wide screens only;
+// narrow layouts position it with CSS as a bottom sheet).
+function placeCard() {
+  const c = $("#card");
+  if (innerWidth <= 760) { c.style.top = ""; c.style.maxHeight = ""; return; }
+  const top = $("#brand").getBoundingClientRect().bottom + 12;
+  c.style.top = top + "px"; c.style.maxHeight = `calc(100vh - ${Math.round(top) + 80}px)`;
+}
+addEventListener("resize", () => { if (selected >= 0) placeCard(); });
 
 // "Why this score": TreeSHAP contributions from the fold model that scored the object
 let XP = null;
@@ -1269,6 +1355,8 @@ function frame(now) {
     controls.update();
     sunGlow.scale.setScalar(Math.max(3.2, camera.position.length() * 0.09));
     sunGlow2.scale.setScalar(Math.max(12, camera.position.length() * 0.3));
+    corona.scale.setScalar(Math.max(5, camera.position.length() * 0.13));
+    if (!reduceMotion) corona.material.rotation += dt * 0.012;
     updateLabels(); updateClock();
   } else {
     updateFlyby(dt);
@@ -1286,6 +1374,7 @@ addEventListener("resize", () => {
 window.__neo = {
   get simJD() { return simJD; }, get mode() { return mode; }, get selected() { return selected; },
   get ready() { return !!OBJ && intro.t >= 1; },                               // data loaded and intro finished
+  get gridVisible() { return grid.visible; }, get topOrbits() { return { count: TOP.count, rows: TOP.rows }; }, topRows,
   select: k => select(k, true), enterFlyby: j => enterFlyby(j), exitFlyby,
   rowOf: des => OBJ ? OBJ.pdes.indexOf(des) : -1,
   helioAst: (k, jd) => { applyOverrides(jd); return objPos(k, jd); },          // au, ecliptic J2000

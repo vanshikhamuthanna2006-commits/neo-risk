@@ -48,6 +48,9 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
   const apo = await p.evaluate(() => __neo.rowOf('99942'));
   ok('Enter selects Apophis', await p.evaluate(() => __neo.selected) === apo);
   ok('card shows Apophis', /Apophis/.test(await p.textContent('#card')));
+  const ov = await p.evaluate(() => { const a = document.querySelector('#brand').getBoundingClientRect(), c = document.querySelector('#card').getBoundingClientRect();
+    return c.top >= a.bottom - 0.5 || c.left >= a.right || c.right <= a.left; });
+  ok('card does not overlap the brand panel', ov);
   ok('URL updated', /obj=99942/.test(p.url()));
   // W1: "why this score" drivers in the atlas card must equal explain.json for this object
   const X = JSON.parse(fs.readFileSync('/home/user/neo-risk/docs/data/explain.json', 'utf8'));
@@ -77,6 +80,19 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
   await p.click('#modes [data-m="1"]'); await p.waitForTimeout(150);
   ok('colour by PHA keeps top-1% count', Math.abs(n(await p.textContent('#count')) - 432) < 60);
   await p.click('#filters [data-f="0"]'); await p.click('#modes [data-m="0"]');
+
+  // W2: scale grid + top-risk orbit overlay
+  ok('grid toggle present and on by default', await p.isChecked('#t-grid') && await p.evaluate(() => __neo.gridVisible));
+  await p.click('#t-grid'); ok('grid toggles off', !(await p.evaluate(() => __neo.gridVisible))); await p.click('#t-grid');
+  await p.click('#t-top'); await p.waitForTimeout(300);
+  ok('top-risk overlay draws 50 orbits', await p.evaluate(() => __neo.topOrbits.count) === 50);
+  const topS = await p.evaluate(() => __neo.topOrbits.rows.slice());
+  const wantS = await p.evaluate(() => __neo.topRows(0, 50));
+  ok('overlay = 50 highest P(Sentry) objects', JSON.stringify(topS) === JSON.stringify(wantS));
+  await p.click('#modes [data-m="1"]'); await p.waitForTimeout(300);
+  ok('overlay follows colour mode (PHA)', JSON.stringify(await p.evaluate(() => __neo.topOrbits.rows.slice())) === JSON.stringify(await p.evaluate(() => __neo.topRows(1, 50))));
+  await p.click('#modes [data-m="0"]'); await p.click('#t-top');
+  ok('overlay toggles off', await p.evaluate(() => __neo.topOrbits.count) === 0);
 
   // time controls
   await p.click('#play'); const t1 = await p.evaluate(() => __neo.simJD); await p.waitForTimeout(800);
