@@ -301,6 +301,7 @@ body.flyby #fly, body.flyby #flybar { display: block; }
   <span class="sep"></span>
   <button class="chip" id="now">Now</button>
   <input type="date" id="jump" class="date-in" min="1950-01-01" max="2099-12-31" aria-label="Jump to a date" title="Jump to a date">
+  <button class="chip" id="share" title="Copy a link to exactly this view">Copy link</button>
 </div>
 
 <!-- timeline 1950-2100 with flyby markers -->
@@ -339,6 +340,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 // constants & helpers
 // =====================================================================================
 const $ = s => document.querySelector(s);
+const Q = new URLSearchParams(location.search);   // shared-view parameters (see shareURL)
 const AU = 10;                      // scene units per au (solar-system view)
 const J2000 = 2451545.0, GK = 0.01720209895, AU_KM = 149597870.7, LD_KM = 384400;
 const T_BASE = 9600;                // days after J2000; keeps float32 GPU time precise
@@ -913,7 +915,7 @@ function select(k, fly = false) {
   updateSelection(simJD);
   renderCard();
   if (fly) { const [a] = objElements(k); flyTo(selNow, Math.min(40, Math.max(6, a * AU * 1.9))); }
-  try { history.replaceState(null, "", "?obj=" + encodeURIComponent(OBJ.pdes[k])); } catch (e) {}
+  updateURL();
 }
 function renderCard() {
   const k = selected; if (k < 0 || !OBJ) return;
@@ -1371,17 +1373,22 @@ async function load() {
     const r = []; for (let k = 0; k < NOBJ; k++) r.push(EL[k * 10 + 7 + m]);
     r.sort((a, b) => b - a); thrTop[m] = r[Math.floor(NOBJ * 0.01)];
   }
+  // view from the link: filter + colour mode (chips) before the first count
+  if (Q.has("f")) filter = Math.max(0, Math.min(3, +Q.get("f") | 0));
+  if (Q.has("m")) modeRisk = +Q.get("m") === 1 ? 1 : 0;
+  $("#filters").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", +x.dataset.f === filter));
+  $("#modes").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", +x.dataset.m === modeRisk));
   applyFilter(); renderEncounters(); renderTimelineMarks();
   $("#intro-sub").textContent = `${NOBJ.toLocaleString()} near-Earth asteroids · ${jdToStr(jdNow(), false)}`;
   setTimeout(() => $("#intro").classList.add("out"), reduceMotion ? 300 : 2200);
   // names / details in the background
   fetch("data/objects.json").then(r => r.json()).then(o => {
     OBJ = o; OBJ._lname = OBJ.name.map((n, k) => (n + " " + OBJ.pdes[k]).toLowerCase().replace(/[()]/g, ""));
-    const u = new URLSearchParams(location.search);
-    const fb = u.get("flyby"), ob = u.get("obj");
-    if (fb) { const j = FLY.flybys.findIndex(f => f.des === fb); if (j >= 0) enterFlyby(j); }
-    else if (ob) { const k = OBJ.pdes.indexOf(ob); if (k >= 0) select(k, true); }
+    const fb = Q.get("flyby"), ob = Q.get("obj");
+    if (fb) { const j = FLY.flybys.findIndex(f => f.des === fb); if (j >= 0) { enterFlyby(j); if (Q.has("ft")) fJD = +Q.get("ft"); } }
+    else if (ob) { const k = OBJ.pdes.indexOf(ob); if (k >= 0) select(k, !Q.has("cam")); }
     else if (selected >= 0) renderCard();
+    urlReady = true;
   });
 }
 load().catch(err => { $("#err").style.display = "grid"; $("#err").textContent = "Could not load orbit data (" + err.message + "). Serve this folder over HTTP, e.g. python -m http.server -d docs."; });
@@ -1390,6 +1397,47 @@ load().catch(err => { $("#err").style.display = "grid"; $("#err").textContent = 
 // main loop
 // =====================================================================================
 const intro = { t: 0, dur: reduceMotion ? 0.01 : 5.5, p0: camera.position.clone(), p1: new THREE.Vector3(0, 14, 30) };
+// ---- shared view from the URL: time, pause, speed, camera (filter/mode/selection applied after load)
+{
+  if (Q.has("t") && isFinite(+Q.get("t"))) simJD = Math.min(JD_MAX, Math.max(JD_MIN, +Q.get("t")));
+  if (Q.get("p") === "0") playing = false;
+  if (Q.has("sp") && SPEEDS.some(s => s[1] === +Q.get("sp"))) setSpeed(+Q.get("sp"));
+  if (Q.get("dir") === "-1") dir = -1;
+  const c = (Q.get("cam") || "").split(",").map(Number);
+  if (c.length === 6 && c.every(isFinite)) {
+    camera.position.set(c[0], c[1], c[2]); controls.target.set(c[3], c[4], c[5]); intro.t = 1;   // exact view: no intro sweep
+  }
+}
+function shareURL() {
+  const u = new URL(location.href.split("?")[0].split("#")[0]);
+  const r = v => (+v).toFixed(3);
+  if (mode === "flyby" && F) { u.searchParams.set("flyby", F.des); u.searchParams.set("ft", fJD.toFixed(5)); return u.toString(); }
+  u.searchParams.set("t", simJD.toFixed(4));
+  if (!playing) u.searchParams.set("p", "0");
+  if (speed !== 86400) u.searchParams.set("sp", speed);
+  if (dir < 0) u.searchParams.set("dir", "-1");
+  if (filter) u.searchParams.set("f", filter);
+  if (modeRisk) u.searchParams.set("m", modeRisk);
+  if (selected >= 0 && OBJ) u.searchParams.set("obj", OBJ.pdes[selected]);
+  u.searchParams.set("cam", [...camera.position.toArray(), ...controls.target.toArray()].map(r).join(","));
+  return u.toString();
+}
+let urlReady = false, lastURL = 0;
+function updateURL(force = true) {
+  if (!urlReady && !force) return;
+  try { history.replaceState(null, "", shareURL().replace(location.origin, "")); } catch (e) {}
+}
+$("#share").onclick = async () => {
+  const url = shareURL(), btn = $("#share");
+  updateURL();
+  let ok = false;
+  try { await navigator.clipboard.writeText(url); ok = true; } catch (e) {
+    const ta = document.createElement("textarea"); ta.value = url; document.body.appendChild(ta); ta.select();
+    try { ok = document.execCommand("copy"); } catch (e2) {} ta.remove();
+  }
+  btn.textContent = ok ? "Link copied ✓" : "Link is in the address bar — select it to copy";
+  setTimeout(() => { btn.textContent = "Copy link"; }, 2500);
+};
 let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
@@ -1420,6 +1468,7 @@ function frame(now) {
     if (!reduceMotion) corona.material.rotation += dt * 0.012;
     updateLabels(); updateClock();
     if (!tlDrag) $("#tl").value = simJD;
+    if (urlReady && now - lastURL > 1500) { lastURL = now; updateURL(); }   // address bar always holds the current view
   } else {
     updateFlyby(dt);
   }
@@ -1436,6 +1485,7 @@ addEventListener("resize", () => {
 window.__neo = {
   get simJD() { return simJD; }, get mode() { return mode; }, get selected() { return selected; }, get playing() { return playing; },
   get ready() { return !!OBJ && intro.t >= 1; },                               // data loaded and intro finished
+  get view() { return { f: filter, m: modeRisk, cam: [...camera.position.toArray(), ...controls.target.toArray()] }; }, shareURL,
   get gridVisible() { return grid.visible; }, get topOrbits() { return { count: TOP.count, rows: TOP.rows }; }, topRows,
   select: k => select(k, true), enterFlyby: j => enterFlyby(j), exitFlyby,
   rowOf: des => OBJ ? OBJ.pdes.indexOf(des) : -1,

@@ -166,6 +166,25 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
   ok('atlas: no page errors', p.errs.length === 0, p.errs.slice(0, 3).join(' | '));
   await p.close();
 
+  // W4: shareable views — a crafted link restores time, pause, selection, filter, colour mode, camera
+  const s = await page(b, { width: W, height: H });
+  await s.goto('http://localhost:8765/index.html?t=2462240.41&p=0&obj=99942&f=1&m=1&cam=12.5,6,18,1,0,-2');
+  await s.waitForFunction(() => window.__neo && __neo.ready && __neo.selected >= 0, null, { timeout: 60000 });
+  await s.waitForTimeout(500);
+  const st = await s.evaluate(() => ({ jd: __neo.simJD, playing: __neo.playing, sel: __neo.selected, apo: __neo.rowOf('99942'), view: __neo.view }));
+  ok('link restores time', Math.abs(st.jd - 2462240.41) < 0.01, st.jd.toFixed(3));
+  ok('link restores pause', st.playing === false);
+  ok('link restores selection', st.sel === st.apo);
+  ok('link restores filter and colour mode', st.view.f === 1 && st.view.m === 1 && /PHA/.test(await s.textContent('#filters [aria-pressed="true"]')));
+  ok('link restores camera', Math.hypot(st.view.cam[0] - 12.5, st.view.cam[1] - 6, st.view.cam[2] - 18) < 0.05 && Math.hypot(st.view.cam[3] - 1, st.view.cam[4], st.view.cam[5] + 2) < 0.05, JSON.stringify(st.view.cam));
+  const link = await s.evaluate(() => __neo.shareURL());
+  const u = new URL(link);
+  ok('share link round-trips', Math.abs(+u.searchParams.get('t') - st.jd) < 0.01 && u.searchParams.get('obj') === '99942' && u.searchParams.get('f') === '1' && u.searchParams.get('m') === '1' && u.searchParams.get('p') === '0');
+  await s.click('#share'); await s.waitForTimeout(300);
+  ok('Copy link gives feedback', /copied|Copied|select/i.test(await s.textContent('#share')));
+  ok('share: no page errors', s.errs.length === 0, s.errs.slice(0, 3).join(' | '));
+  await s.close();
+
   // deep links + phone
   const m = await page(b, { width: 390, height: 844 });
   await m.goto('http://localhost:8765/index.html?flyby=2024%20YR4');
