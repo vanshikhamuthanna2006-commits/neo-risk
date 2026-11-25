@@ -3,3 +3,5 @@
 == data
 check_data: OK
 == browser e2e
+82/82 checks passed
+== VERIFY PASS

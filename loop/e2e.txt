@@ -1,0 +1,84 @@
+PASS  position 433      2026.9  — error 0.0001 au (0.00% of r), tol 0.01
+PASS  position 433      2029.3  — error 0.0001 au (0.01% of r), tol 0.2
+PASS  position 433      2034.1  — error 0.0006 au (0.03% of r), tol 0.2
+PASS  position 99942    2026.9  — error 0.0000 au (0.00% of r), tol 0.002
+PASS  position 99942    2029.3  — error 0.0001 au (0.01% of r), tol 0.002
+PASS  position 99942    2034.1  — error 0.0000 au (0.00% of r), tol 0.002
+PASS  position 101955   2026.9  — error 0.0002 au (0.02% of r), tol 0.01
+PASS  position 101955   2029.3  — error 0.0003 au (0.02% of r), tol 0.2
+PASS  position 101955   2034.1  — error 0.0041 au (0.31% of r), tol 0.2
+PASS  position Earth    2026.9  — error 0.0000 au (0.00% of r), tol 0.002
+PASS  position Earth    2029.3  — error 0.0001 au (0.01% of r), tol 0.002
+PASS  position Earth    2034.1  — error 0.0001 au (0.01% of r), tol 0.002
+PASS  position Mars     2026.9  — error 0.0001 au (0.01% of r), tol 0.002
+PASS  position Mars     2029.3  — error 0.0002 au (0.01% of r), tol 0.002
+PASS  position Mars     2034.1  — error 0.0003 au (0.02% of r), tol 0.002
+PASS  position Jupiter  2026.9  — error 0.0032 au (0.06% of r), tol 0.02
+PASS  position Jupiter  2029.3  — error 0.0038 au (0.07% of r), tol 0.02
+PASS  position Jupiter  2034.1  — error 0.0050 au (0.10% of r), tol 0.02
+PASS  position 2024 YR4 2026.9  — error 0.0000 au (0.00% of r), tol 0.002
+PASS  position 2024 YR4 2029.3  — error 0.0000 au (0.00% of r), tol 0.002
+PASS  position 2024 YR4 2034.1  — error 0.0000 au (0.00% of r), tol 0.002
+PASS  search shows results
+PASS  Enter selects Apophis
+PASS  card shows Apophis
+PASS  URL updated
+PASS  click-to-pick selects an object
+PASS  Escape clears selection
+PASS  filter All = 43,160  — Showing 43,160 of 43,160 asteroids
+PASS  filter PHAs < All  — Showing 2,552 of 43,160 asteroids
+PASS  filter Sentry  — Showing 2,256 of 43,160 asteroids
+PASS  filter Top 1% ≈ 432  — Showing 432 of 43,160 asteroids
+PASS  colour by PHA keeps top-1% count
+PASS  pause stops time
+PASS  1 mo/s advances ~30 days/s  — 18.3 d in 1 s (software renderer)
+PASS  reverse runs time backwards
+PASS  Now = real time  — 0.3 s off
+PASS  LIVE badge shown
+PASS  flyby Apophis: mode
+PASS  flyby Apophis: distance at CA  — 38011 km vs JPL 38011 km
+PASS  flyby Apophis: live readouts  — 60,485 km · T−01:58:35
+PASS  flyby Apophis: exit restores solar view
+PASS  flyby 2001 WN5: mode
+PASS  flyby 2001 WN5: distance at CA  — 248711 km vs JPL 248711 km
+PASS  flyby 2001 WN5: live readouts  — 258,980 km · T−01:58:18
+PASS  flyby 2001 WN5: exit restores solar view
+PASS  flyby 1999 AN10: mode
+PASS  flyby 1999 AN10: distance at CA  — 389855 km vs JPL 389855 km
+PASS  flyby 1999 AN10: live readouts  — 432,207 km · T−01:58:18
+PASS  flyby 1999 AN10: exit restores solar view
+PASS  flyby 2024 YR4: mode
+PASS  flyby 2024 YR4: distance at CA  — 278333 km vs JPL 278333 km
+PASS  flyby 2024 YR4: live readouts  — 293,849 km · T−01:58:24
+PASS  flyby 2024 YR4: exit restores solar view
+PASS  flyby 2012 UE34: mode
+PASS  flyby 2012 UE34: distance at CA  — 109649 km vs JPL 109649 km
+PASS  flyby 2012 UE34: live readouts  — 117,172 km · T−01:58:24
+PASS  flyby 2012 UE34: exit restores solar view
+PASS  flyby 2005 YU55: mode
+PASS  flyby 2005 YU55: distance at CA  — 203476 km vs JPL 203517 km
+PASS  flyby 2005 YU55: live readouts  — 225,630 km · T−01:58:18
+PASS  flyby 2005 YU55: exit restores solar view
+PASS  encounter list opens a flyby
+PASS  Escape leaves flyby
+PASS  atlas: no page errors
+PASS  ?flyby= deep link opens flyby (phone)
+PASS  phone: search panel opens
+PASS  phone: encounters panel opens
+PASS  phone: no horizontal overflow  — scrollWidth 390
+PASS  phone: no page errors
+PASS  explorer ?obj= selects Bennu
+PASS  explorer tab decide renders
+PASS  explorer tab results renders
+PASS  explorer tab leak renders
+PASS  explorer tab about renders
+PASS  explorer tab explore renders
+PASS  explorer Mode A list
+PASS  explorer sort by arc
+PASS  cost slider updates  — 10 : 1
+PASS  conformal slider updates
+PASS  theme toggles
+PASS  explorer → atlas link
+PASS  explorer: no page errors
+
+82/82 checks passed
