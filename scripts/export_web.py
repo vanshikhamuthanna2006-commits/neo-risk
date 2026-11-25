@@ -61,6 +61,37 @@ def strat_split(pos: np.ndarray, y: np.ndarray, fracs, rng):
 
 res: dict[str, dict] = {}
 cols: dict[str, np.ndarray] = {}
+explain: dict[str, dict] = {}
+
+# Plain-language feature names shown on the site (unknown names fall back to the column name).
+LABELS = {
+    "a": "Semi-major axis (au)", "e": "Eccentricity", "i_deg": "Inclination (°)", "q": "Perihelion distance (au)",
+    "Q": "Aphelion distance (au)", "t_jup": "Tisserand parameter (Jupiter)", "sin_om": "sin node", "cos_om": "cos node",
+    "sin_w": "sin arg. perihelion", "cos_w": "cos arg. perihelion", "sin_ma": "sin mean anomaly", "cos_ma": "cos mean anomaly",
+    "log10_data_arc": "log10 data arc (days)", "log10_n_obs": "log10 number of observations", "n_radar_obs": "Radar observations",
+    "condition_code": "Orbit condition code (0 best, 9 worst)", "rms": "Orbit-fit RMS (arcsec)", "obs_staleness_yr": "Years since last observation",
+    "log10_sigma_a": "log10 σ semi-major axis", "log10_sigma_e": "log10 σ eccentricity", "log10_sigma_i": "log10 σ inclination",
+    "log10_sigma_om": "log10 σ node", "log10_sigma_w": "log10 σ arg. perihelion", "log10_sigma_ma": "log10 σ mean anomaly",
+    "log10_diameter_km": "log10 measured diameter (km)", "has_diameter": "Has measured diameter", "log10_rot_per_h": "log10 rotation period (h)",
+    "has_rot_per": "Has rotation period", "tax_C": "Taxonomy C", "tax_S": "Taxonomy S", "tax_X": "Taxonomy X", "tax_other": "Taxonomy other",
+    "has_taxonomy": "Has taxonomy",
+    "dyn_da_10": "Δa after 10 yr (N-body)", "dyn_de_10": "Δe after 10 yr", "dyn_di_10": "Δi after 10 yr", "dyn_da_25": "Δa after 25 yr",
+    "dyn_de_25": "Δe after 25 yr", "dyn_di_25": "Δi after 25 yr", "dyn_da_50": "Δa after 50 yr", "dyn_de_50": "Δe after 50 yr",
+    "dyn_di_50": "Δi after 50 yr", "dyn_dmin_earth_au": "Closest Earth approach, 50 yr (au)", "dyn_log10_dmin_earth": "log10 closest Earth approach",
+    "dyn_tmin_earth_yr": "Years until closest approach", "dyn_n_enc_005": "Earth encounters < 0.05 au", "dyn_div_log10_growth": "Orbit divergence growth",
+    "dyn_lyap_proxy_per_yr": "Chaos (Lyapunov) proxy", "dyn_log10_div_max_au": "log10 max divergence (au)", "dyn_lost": "Ejected or collided",
+    "unc_log10_sig_e": "log10 σ e (full covariance)", "unc_log10_sig_q": "log10 σ q (full covariance)", "unc_log10_sig_tp_days": "log10 σ perihelion time (days)",
+    "unc_log10_sig_i": "log10 σ i (full covariance)", "unc_log10_lov_sigma": "log10 line-of-variations σ", "unc_log10_cov_cond": "log10 covariance condition no.",
+    "unc_frac_unbound": "Unbound clone fraction", "unc_dmin_mean_au": "Clones: mean closest approach (au)", "unc_dmin_std_au": "Clones: spread of closest approach (au)",
+    "unc_log10_dmin_mean": "Clones: log10 mean closest approach", "unc_log10_dmin_std": "Clones: log10 spread of closest approach",
+    "unc_dmin_q05_au": "Clones: 5th-percentile closest approach (au)", "unc_p_dmin_lt_005": "Clones: P(closest < 0.05 au)",
+    "unc_p_dmin_lt_001": "Clones: P(closest < 0.01 au)", "unc_tmin_std_yr": "Clones: spread of encounter time (yr)", "unc_da50_std": "Clones: spread of Δa at 50 yr",
+    "unc_n_valid_clones": "Valid clones", "unc_frac_lost": "Lost clone fraction", "has_unc_clones": "Has covariance clones",
+    "phys_albedo_prior_median": "Albedo prior (taxonomy)", "phys_albedo_prior_logsd": "Albedo prior spread", "phys_density_prior_mean": "Density prior (g/cm³)",
+    "phys_density_prior_sd": "Density prior spread", "phys_v_inf_kms": "Encounter speed v∞ (km/s)", "phys_v_imp_kms": "Impact speed (km/s)",
+    "phys_log10_e_spec_jkg": "log10 specific impact energy", "phys_log10_mass_kg_mean": "log10 mass (kg)", "phys_log10_mass_kg_sd": "log10 mass spread",
+    "phys_log10_ke_mt_mean": "log10 impact energy (Mt)", "phys_log10_ke_mt_sd": "log10 impact energy spread", "has_phys_mass": "Has mass estimate",
+}
 for tname, ys in targets.items():
     y = ys.reindex(idx).to_numpy()
     rng = np.random.default_rng(2026)
@@ -83,6 +114,23 @@ for tname, ys in targets.items():
             pv_b[te] = conformal_pvalues(p_ca[y[ca] == 0], p_te)
             g = pd.Series(m.booster.feature_importance("gain"), index=m.columns)
             imp += g / g.sum() / K
+            if mname == "full":
+                # per-object explanation from THIS fold's model (the one that scored these objects):
+                # LightGBM TreeSHAP contributions; they plus the bias sum exactly to the raw logit
+                Xte = F.iloc[te][m.columns]
+                c = m.booster.predict(Xte, pred_contrib=True, num_iteration=m.booster.best_iteration)
+                z = m.predict_logit(F.iloc[te])
+                assert np.allclose(c.sum(axis=1) + m.init, z, atol=1e-6), "contributions do not sum to the logit"
+                ex = explain.setdefault(tname, {"names": list(m.columns), "idx": np.zeros((len(y), 5), int),
+                                                "val": np.zeros((len(y), 5)), "fx": np.full((len(y), 5), np.nan),
+                                                "base": np.zeros(len(y)), "logit": np.zeros(len(y))})
+                assert ex["names"] == list(m.columns)
+                top = np.argsort(-np.abs(c[:, :-1]), axis=1)[:, :5]
+                ex["idx"][te] = top
+                ex["val"][te] = np.take_along_axis(c[:, :-1], top, axis=1)
+                ex["fx"][te] = np.take_along_axis(Xte.to_numpy(float), top, axis=1)
+                ex["base"][te] = c[:, -1] + m.init
+                ex["logit"][te] = z
         cols[f"p_{tname}_{mname}"] = p_oof
         if mname == "full":
             cols[f"pvh_{tname}"] = pv_h; cols[f"pvb_{tname}"] = pv_b
@@ -123,6 +171,19 @@ tbl = {
 for k, v in cols.items():
     tbl[k] = r(v, 5)
 json.dump(tbl, open(out_dir / "objects.json", "w"), separators=(",", ":"), allow_nan=False)
+
+# ---------------------------------------------------------------- per-object explanations
+def sig4(a):
+    return [None if not np.isfinite(v) else float(f"{v:.4g}") for v in np.asarray(a, float).ravel()]
+
+xout = {"note": "TreeSHAP contributions to the full model's log-odds (before Platt calibration), from the "
+                "cross-validation fold model that scored each object; base + all contributions = logit.",
+        "labels": {}}
+for tname, ex in explain.items():
+    xout["labels"] = {c: LABELS.get(c, c) for c in ex["names"]}
+    xout[tname] = {"names": ex["names"], "idx": ex["idx"].ravel().tolist(), "val": np.round(ex["val"], 4).ravel().tolist(),
+                   "fx": sig4(ex["fx"]), "base": np.round(ex["base"], 4).tolist(), "logit": np.round(ex["logit"], 4).tolist()}
+json.dump(xout, open(out_dir / "explain.json", "w"), separators=(",", ":"), allow_nan=False)
 
 # ---------------------------------------------------------------- official test-split tables
 tabs = {}

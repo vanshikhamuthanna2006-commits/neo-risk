@@ -126,6 +126,23 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
     await e.click(`nav.tabs [data-tab="${t}"]`); await e.waitForTimeout(200);
     ok(`explorer tab ${t} renders`, await e.isVisible(`#tab-${t}`));
   }
+  // R2: research-gap audit tab
+  await e.click('nav.tabs [data-tab="gaps"]'); await e.waitForTimeout(300);
+  ok('gaps tab renders', await e.isVisible('#tab-gaps'));
+  const gaps = await e.$$eval('#gap-rows tr', rows => rows.map(r => ({
+    status: (r.querySelector('[data-status]') || {}).dataset?.status, evidence: (r.querySelector('.evidence') || {}).textContent || '' })));
+  ok('gaps: at least 10 rows', gaps.length >= 10, `${gaps.length} rows`);
+  ok('gaps: every row has a valid status', gaps.every(g => ['addressed', 'partial', 'open'].includes(g.status)));
+  ok('gaps: every row has evidence', gaps.every(g => g.evidence.trim().length > 20));
+  // every number tagged with data-src must equal the value in summary.json
+  const summary = JSON.parse(fs.readFileSync('/home/user/neo-risk/docs/data/summary.json', 'utf8'));
+  const tagged = await e.$$eval('#gap-rows [data-src]', els => els.map(x => [x.dataset.src, x.dataset.val]));
+  const lookup = src => { const [tab, model, col] = src.split(':');
+    if (tab === 'metrics') return summary[model].metrics[col.split('.')[0]][col.split('.')[1]];
+    if (tab === 'stage3') return col ? summary.stage3[model][col] : summary.stage3[model];
+    return summary.tables[tab].find(r => r.model === model)[col]; };
+  const bad = tagged.filter(([src, v]) => Math.abs(lookup(src) - +v) > 1e-9);
+  ok('gaps: numbers match summary.json', tagged.length >= 12 && bad.length === 0, `${tagged.length} numbers, ${bad.length} mismatched ${bad.slice(0, 2)}`);
   await e.click('#m-pha'); await e.waitForTimeout(200);
   await e.fill('#q', ''); await e.dispatchEvent('#q', 'input'); await e.waitForTimeout(300);
   ok('explorer Mode A list', /43,160 objects/.test(await e.textContent('#count')));

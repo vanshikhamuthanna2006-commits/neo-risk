@@ -84,6 +84,11 @@ dl.kv dd { margin: 0; font-variant-numeric: tabular-nums; }
 .tip b { font-weight: 600; }
 .note { border-left: 3px solid var(--accent); padding: 8px 12px; background: var(--surface-2); border-radius: 0 8px 8px 0; font-size: 14px; margin: 10px 0; }
 .hidden { display: none !important; }
+table.gaps td { white-space: normal; vertical-align: top; padding: 10px 8px; line-height: 1.45; }
+table.gaps td:first-child { width: 22%; } table.gaps td:nth-child(2) { width: 9%; } table.gaps td:nth-child(3) { width: 40%; }
+table.gaps tbody tr { cursor: default; }
+@media (max-width: 760px) { table.gaps, table.gaps tbody, table.gaps tr, table.gaps td { display: block; width: auto !important; }
+  table.gaps thead { display: none; } table.gaps tr { border-bottom: 1px solid var(--border); padding: 6px 0; } table.gaps td { border: 0; padding: 4px 0; } }
 footer { color: var(--ink-2); font-size: 13px; margin-top: 24px; }
 a { color: var(--accent); }
 .loading { padding: 40px; text-align: center; color: var(--ink-2); }
@@ -111,6 +116,7 @@ a { color: var(--accent); }
   <button role="tab" data-tab="decide" aria-selected="false">Decision trade-off</button>
   <button role="tab" data-tab="results" aria-selected="false">Results</button>
   <button role="tab" data-tab="leak" aria-selected="false">Leakage audit</button>
+  <button role="tab" data-tab="gaps" aria-selected="false">Research gaps</button>
   <button role="tab" data-tab="about" aria-selected="false">Method</button>
 </nav>
 
@@ -208,6 +214,19 @@ a { color: var(--accent); }
 </section>
 
 <!-- ============================================================ ABOUT -->
+<section id="tab-gaps" class="hidden">
+  <div class="card">
+    <h2>Which research gaps does this project close?</h2>
+    <p class="sub">The four gaps the project set out to address, plus the ones that surfaced along the way. Every number here is read live from the results data. Δ is the change in PR-AUC against the leak-free static baseline on the official 5-seed test splits, with a 95% bootstrap interval; an interval that excludes 0 is a real effect.</p>
+    <div class="row" style="gap:14px;font-size:13px;color:var(--ink-2)">
+      <span><span class="badge"><span class="dot" style="background:var(--good)"></span>Addressed</span> the evidence supports it</span>
+      <span><span class="badge"><span class="dot" style="background:var(--warn)"></span>Partial</span> done, with a stated limit</span>
+      <span><span class="badge"><span class="dot" style="background:var(--crit)"></span>Open</span> not closed; the next step is given</span>
+    </div>
+    <div class="tbl-wrap"><table class="gaps"><thead><tr><th>Gap</th><th>Status</th><th>Evidence</th><th>What remains</th></tr></thead><tbody id="gap-rows"></tbody></table></div>
+  </div>
+</section>
+
 <section id="tab-about" class="hidden">
   <div class="card">
     <h2>Method in brief</h2>
@@ -563,6 +582,60 @@ function renderLeak() {
     t("Max |ρ| vs any audit column", fmt(s3.max_rank_corr_vs_audit, 3), "gate limit 0.995");
 }
 
+// ------------------------------------------------------------------ research gaps
+function renderGaps() {
+  // tagged number: data-src lets the automated check compare it with summary.json
+  const val = src => { const [tab, model, col] = src.split(":");
+    if (tab === "metrics") { const [m, k] = col.split("."); return S[model].metrics[m][k]; }
+    if (tab === "stage3") return col ? S.stage3[model][col] : S.stage3[model];
+    return S.tables[tab].find(r => r.model === model)[col]; };
+  const n = (src, d = 3, signed = false) => { const v = val(src);
+    return `<b data-src="${src}" data-val="${v}">${signed && v >= 0 ? "+" : ""}${(+v).toFixed(d)}</b>`; };
+  const delta = (tab, model) => `${n(`${tab}:${model}:d_pr_auc`, 3, true)} [${n(`${tab}:${model}:d_pr_auc_lo`, 3, true)}, ${n(`${tab}:${model}:d_pr_auc_hi`, 3, true)}]`;
+  const sig = (tab, model) => { const r = S.tables[tab].find(r => r.model === model); return r.d_pr_auc_lo > 0; };
+  const nDiam = O.diam.filter(v => v != null).length;
+  const ST = { addressed: ["Addressed", "var(--good)"], partial: ["Partial", "var(--warn)"], open: ["Open", "var(--crit)"] };
+  const rows = [
+    ["Label circularity: MOID and H used as inputs to predict a label defined by them", "addressed",
+     `With MOID and H the model scores PR-AUC ${n("metrics:pha:naive.pr_auc")} (it rediscovers the definition). Without them, ${n("metrics:pha:static.pr_auc")}. MOID, H and anything that rebuilds them are blocked by a name gate and a rank-correlation gate (max |ρ| ${n("stage3:max_rank_corr_vs_audit", 3)}, limit 0.995).`,
+     `The information is still implicit: a probe recovers H with R² ${n("stage3:probe_X_subset:r2_H", 2)} and MOID with R² ${n("stage3:probe_X_subset:r2_moid", 2)} from allowed inputs. That is physics, not leakage, but "leak-free" means "no direct access".`],
+    ["Static orbital snapshots ignore how orbits evolve", sig("sentry_stratified_all", "static_dyn") ? "addressed" : "partial",
+     `50-year N-body features alone: Sentry Δ ${delta("sentry_stratified_all", "static_dyn")}; PHA Δ ${delta("pha_stratified_all", "static_dyn")}.`,
+     "Dynamics alone help modestly; most of the gain arrives once uncertainty is added. Planet positions in the simulation are approximate (about 15,000 km for Earth)."],
+    ["Observational uncertainty is ignored (one nominal orbit per object)", "addressed",
+     `32 clones per object from the full JPL covariance, for ${n("stage3:n_selected", 0)} objects (all of them). Dynamics + uncertainty: Sentry Δ ${delta("sentry_stratified_all", "static_dyn_unc")} stratified, ${delta("sentry_temporal_all", "static_dyn_unc")} temporal.`,
+     "Clones are two-body-sampled from the covariance and then N-body propagated; non-gravitational forces are not sampled (see below)."],
+    ["Missing physical traits (size, density, composition)", "partial",
+     `Taxonomy-based albedo and density priors with explicit masks (no mean imputation); S and C values from Thomas et al. 2011 and Carry 2012. Only ${nDiam.toLocaleString()} of ${O.pdes.length.toLocaleString()} objects have a measured diameter.`,
+     "The X-complex and unknown-taxonomy priors are stated assumptions. Survey albedos (NEOWISE) for more objects would make this stronger."],
+    ["Class imbalance and asymmetric error costs handled with SMOTE or accuracy", "addressed",
+     `No resampling. Asymmetric focal loss was tested and did not help (Sentry Δ ${delta("sentry_stratified_all", "static_dyn_unc_focal")}, against ${n("sentry_stratified_all:static_dyn_unc:d_pr_auc", 3, true)} with plain log-loss). Decisions use a cost-optimal threshold and label-conditional conformal sets with a coverage guarantee.`,
+     "The cost ratio (100 : 1) is a modelling choice; the Decision tab lets readers change it."],
+    ["Short observation arcs, where catalogues are least certain", sig("pha_temporal_short_arc", "static_dyn_unc") ? "addressed" : "partial",
+     `Separate short-arc (&lt; 30 d) results: PHA temporal Δ ${delta("pha_temporal_short_arc", "static_dyn_unc")}; Sentry temporal Δ ${delta("sentry_temporal_short_arc", "static_dyn_unc")}.`,
+     "Short arcs are where the gains are largest, but the PHA short-arc test set is small, so its interval is wide."],
+    ["Generalising to newly discovered objects (temporal split)", sig("pha_temporal_all", "static_dyn_unc") ? "addressed" : "partial",
+     `Trained on older discoveries, tested on newer ones. Sentry Δ ${delta("sentry_temporal_all", "static_dyn_unc")}; PHA Δ ${delta("pha_temporal_all", "static_dyn_unc")}.`,
+     "For PHA the temporal gain's interval includes 0, so the improvement on brand-new objects is not established for that label."],
+    ["Label proxy: the Sentry list is itself built from covariance-based impact searches", "partial",
+     "Mode B's large gain partly reflects the model emulating Sentry's own method, which the clone features approximate. Mode A (the PHA label) is reported alongside as a label that does not come from that process.",
+     "An external label that doesn't come from the same method (e.g. later observational outcomes) would separate emulation from discovery; see the next row."],
+    ["No prospective (future-data) validation", "open",
+     "Every evaluation so far uses labels from the same download. scripts/prospective_check.py rescores later Sentry additions and removals against today's scores.",
+     "Run it again after a few months; on 2026-11-25 too few objects had changed since training to evaluate."],
+    ["Non-gravitational forces (Yarkovsky, outgassing) in the uncertainty clones", "open",
+     "Clones use the 6×6 gravitational block; for 8×8 covariances with non-gravitational parameters those terms are marginalised out.",
+     "Sampling the A1/A2 parameters where JPL provides them would widen clouds for the few objects where it matters (e.g. Bennu)."],
+    ["Precision of the planetary model inside the feature pipeline", "partial",
+     "Planets start from Standish approximate elements (~1e-4 au). The website itself is checked against JPL Horizons (median asteroid error 0.00008 au); the features are a separate, coarser model.",
+     "Swap in DE440 initial conditions (a single function, planet_elements, is the hook) and re-run Stage 2."],
+  ];
+  $("#gap-rows").innerHTML = rows.map(([g, st, ev, rem]) => `<tr>
+    <td><b>${g}</b></td>
+    <td><span class="badge" data-status="${st}"><span class="dot" style="background:${ST[st][1]}"></span>${ST[st][0]}</span></td>
+    <td class="evidence">${ev}</td><td class="muted">${rem}</td></tr>`).join("");
+}
+
 // ------------------------------------------------------------------ wiring
 function renderAll() {
   if (!O) return;
@@ -570,6 +643,7 @@ function renderAll() {
   if (state.tab === "decide") renderDecide();
   if (state.tab === "results") { renderPR(); renderDelta(); renderImp(); }
   if (state.tab === "leak") renderLeak();
+  if (state.tab === "gaps") renderGaps();
 }
 function setTab(t) {
   state.tab = t;
@@ -579,7 +653,7 @@ function setTab(t) {
   renderAll();
 }
 $$("nav.tabs button").forEach(b => b.onclick = () => setTab(b.dataset.tab));
-const TABS = ["explore", "decide", "results", "leak", "about"];
+const TABS = ["explore", "decide", "results", "leak", "gaps", "about"];
 addEventListener("hashchange", () => { const t = location.hash.slice(1); if (O && TABS.includes(t) && t !== state.tab) setTab(t); });
 const setMode = m => { state.mode = m; $("#m-sentry").setAttribute("aria-pressed", m === "sentry"); $("#m-pha").setAttribute("aria-pressed", m === "pha"); state.limit = 50; renderAll(); };
 $("#m-sentry").onclick = () => setMode("sentry"); $("#m-pha").onclick = () => setMode("pha");
