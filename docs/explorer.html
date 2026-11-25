@@ -637,7 +637,8 @@ function renderGaps() {
     ["Label circularity: MOID and H used as inputs to predict a label defined by them", "addressed",
      `With MOID and H the model scores PR-AUC ${n("metrics:pha:naive.pr_auc")} (it rediscovers the definition). Without them, ${n("metrics:pha:static.pr_auc")}. MOID, H and anything that rebuilds them are blocked by a name gate and a rank-correlation gate (max |ρ| ${n("stage3:max_rank_corr_vs_audit", 3)}, limit 0.995).`,
      `The information is still implicit: a probe recovers H with R² ${n("stage3:probe_X_subset:r2_H", 2)} and MOID with R² ${n("stage3:probe_X_subset:r2_moid", 2)} from allowed inputs. That is physics, not leakage, but "leak-free" means "no direct access".`],
-    ["Static orbital snapshots ignore how orbits evolve", sig("sentry_stratified_all", "static_dyn") ? "addressed" : "partial",
+    // "addressed" needs a significant gain in BOTH label modes
+    ["Static orbital snapshots ignore how orbits evolve", sig("sentry_stratified_all", "static_dyn") && sig("pha_stratified_all", "static_dyn") ? "addressed" : "partial",
      `50-year N-body features alone: Sentry Δ ${delta("sentry_stratified_all", "static_dyn")}; PHA Δ ${delta("pha_stratified_all", "static_dyn")}.`,
      "Dynamics alone help modestly; most of the gain arrives once uncertainty is added. Planet positions in the simulation are approximate (about 15,000 km for Earth)."],
     ["Observational uncertainty is ignored (one nominal orbit per object)", "addressed",

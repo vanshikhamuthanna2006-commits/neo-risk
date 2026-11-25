@@ -271,6 +271,13 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
   ok('gaps: at least 10 rows', gaps.length >= 10, `${gaps.length} rows`);
   ok('gaps: every row has a valid status', gaps.every(g => ['addressed', 'partial', 'open'].includes(g.status)));
   ok('gaps: every row has evidence', gaps.every(g => g.evidence.trim().length > 20));
+  {   // a status may not overclaim: "addressed" for the dynamics gap requires significance in both modes
+    const S0 = JSON.parse(fs.readFileSync('/home/user/neo-risk/docs/data/summary.json', 'utf8'));
+    const sigOf = t => S0.tables[t].find(r => r.model === 'static_dyn').d_pr_auc_lo > 0;
+    const want = sigOf('sentry_stratified_all') && sigOf('pha_stratified_all') ? 'addressed' : 'partial';
+    const got = await e.$$eval('#gap-rows tr', rows => { const r = rows.find(x => /Static orbital snapshots/.test(x.textContent)); return r && r.querySelector('[data-status]').dataset.status; });
+    ok('gaps: dynamics status follows the evidence in both modes', got === want, `${got} vs ${want}`);
+  }
   // every number tagged with data-src must equal the value in summary.json
   const summary = JSON.parse(fs.readFileSync('/home/user/neo-risk/docs/data/summary.json', 'utf8'));
   const tagged = await e.$$eval('#gap-rows [data-src]', els => els.map(x => [x.dataset.src, x.dataset.val]));
