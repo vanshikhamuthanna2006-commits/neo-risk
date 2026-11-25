@@ -13,5 +13,5 @@
 ## Round 2 (branch loop/site-v3)
 - [x] V1 **Discovery history.** A toggle that shows only the asteroids known on the simulation date (first observation on or before it), with a live counter. Verify: the counter for 2000-01-01 equals a count computed from objects.json.
 - [x] V2 **Uncertainty cloud.** Each selected high-risk asteroid shows its ~32 covariance clones, anchored to the displayed position. Verify in data: each cloud's centre equals that object's elements in orbits.bin. Verify in e2e: the clones are present, and their spread grows over 20 years.
-- [ ] V3 **Upcoming close approaches** (JPL cad.api, next 24 months, <= 0.05 au). Shown as a list next to the featured flybys; clicking an entry jumps to its date and selects the asteroid. Verify: the list is sorted and within 0.05 au, and a click sets the time and the selection.
+- [x] V3 **Upcoming close approaches** (JPL cad.api, next 24 months, <= 0.05 au). Shown as a list next to the featured flybys; clicking an entry jumps to its date and selects the asteroid. Verify: the list is sorted and within 0.05 au, and a click sets the time and the selection.
 - [ ] V4 **Earth-centred view.** A frame switch that keeps Earth at the origin. Verify: in the Earth frame the scene origin equals Earth's position, and switching back restores the Sun-centred frame.

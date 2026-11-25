@@ -138,6 +138,9 @@ dl.kv dd { margin: 0; text-align: right; font-family: var(--mono); font-size: 12
 .enc { display: grid; grid-template-columns: 1fr auto; gap: 1px 10px; padding: 7px 10px; border-radius: 10px; border: 1px solid var(--line);
   background: rgba(255,255,255,.025); cursor: pointer; text-align: left; }
 .enc:hover { background: rgba(255,181,71,.08); border-color: rgba(255,181,71,.4); }
+.enc[disabled] { opacity: .45; cursor: default; }
+.enc[disabled]:hover { background: rgba(255,255,255,.025); border-color: var(--line); }
+#ca-list .d { color: var(--cyan); }
 .enc b { font-weight: 600; }
 .enc .d { font-family: var(--mono); font-size: 12px; color: var(--accent-2); text-align: right; }
 .enc .s { grid-column: 1 / -1; font-size: 11.5px; color: var(--ink-3); }
@@ -315,8 +318,14 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 
 <!-- encounters -->
 <div id="enc" class="hud glass">
-  <div class="eyebrow">Upcoming close encounters · JPL trajectories</div>
+  <div class="eyebrow">Close encounters · JPL data</div>
+  <div class="chips" style="margin-top:8px" role="group" aria-label="Encounter list">
+    <button class="chip" id="enc-tab-feat" aria-pressed="true">Featured flybys</button>
+    <button class="chip" id="enc-tab-next" aria-pressed="false">Next 24 months</button>
+  </div>
   <div class="list" id="enc-list"></div>
+  <div class="list" id="ca-list" hidden></div>
+  <div class="note" id="ca-note" hidden></div>
 </div>
 
 <!-- time bar -->
@@ -1072,6 +1081,12 @@ function layoutHud() {
   }
   const enc = $("#enc");
   if (innerWidth <= 1180 && innerWidth > 760) enc.style.bottom = Math.round(innerHeight - floor + 8) + "px"; else enc.style.bottom = "";
+  // never taller than the space it has: under the brand panel and above the timeline / time bar
+  if (innerWidth > 760) {
+    const encBottom = innerWidth <= 1180 ? floor - 8 : innerHeight - 18;
+    const roof = innerWidth <= 1180 ? $("#brand").getBoundingClientRect().bottom + 10 : $("#brand").getBoundingClientRect().bottom + 10;
+    enc.style.maxHeight = Math.max(140, encBottom - roof) + "px"; enc.style.overflowY = "auto";
+  } else { enc.style.maxHeight = ""; }
 }
 addEventListener("resize", () => { layoutHud(); if (selected >= 0) placeCard(); if (FLY) renderTimelineMarks(); });
 layoutHud();
@@ -1489,6 +1504,25 @@ function updateFlyby(dtReal) {
 // =====================================================================================
 // encounter list
 // =====================================================================================
+let CA = null;                                          // JPL cad.api: approaches <= 0.05 au, next 24 months
+function setEncTab(next) {
+  $("#enc-tab-feat").setAttribute("aria-pressed", !next); $("#enc-tab-next").setAttribute("aria-pressed", next);
+  $("#enc-list").hidden = next; $("#ca-list").hidden = !next; $("#ca-note").hidden = !next;
+}
+$("#enc-tab-feat").onclick = () => setEncTab(false);
+$("#enc-tab-next").onclick = () => setEncTab(true);
+function renderCloseApproaches() {
+  if (!CA) { $("#enc-tab-next").hidden = true; return; }
+  $("#enc-tab-next").textContent = `Next 24 months (${CA.items.length})`;
+  $("#ca-list").innerHTML = CA.items.map((c, i) => {
+    const ld = c.dist_au * AU_KM / LD_KM, size = c.diameter_km ? `${Math.round(c.diameter_km * 1000)} m` : c.h != null ? `H ${c.h.toFixed(1)}` : "";
+    return `<button class="enc ca" data-i="${i}" ${c.row < 0 ? 'disabled title="Discovered after this dataset was built"' : ""}>
+      <b>${esc(c.name.replace(/^\((.*)\)$/, "$1"))}</b><span class="d">${ld.toFixed(2)} LD</span>
+      <span class="s">${esc(c.cd)} UTC · ${c.v_rel.toFixed(1)} km/s${size ? " · " + size : ""}${c.row < 0 ? " · not in atlas" : ""}</span></button>`; }).join("");
+  $("#ca-note").textContent = `${CA.items.length} approaches within 0.05 au (19.5 lunar distances) from ${CA.generated}, JPL close-approach database. Click one to jump to it.`;
+  $("#ca-list").onclick = e => { const b = e.target.closest(".ca"); if (!b || b.disabled) return;
+    const c = CA.items[+b.dataset.i]; simJD = c.jd; playing = false; syncPlay(); select(c.row, true); };
+}
 function renderEncounters() {
   $("#enc-list").innerHTML = FLY.flybys.slice().sort((a, b) => a.jd_ca - b.jd_ca).map(f => {
     const j = FLY.flybys.indexOf(f);
@@ -1547,6 +1581,7 @@ async function load() {
   $("#filters").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", +x.dataset.f === filter));
   $("#modes").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", +x.dataset.m === modeRisk));
   applyFilter(); renderEncounters(); renderTimelineMarks();
+  fetch("data/closeapp.json").then(r => r.ok ? r.json() : null).then(d => { CA = d; renderCloseApproaches(); }).catch(() => renderCloseApproaches());
   $("#intro-sub").textContent = `${NOBJ.toLocaleString()} near-Earth asteroids · ${jdToStr(jdNow(), false)}`;
   setTimeout(() => $("#intro").classList.add("out"), reduceMotion ? 300 : 2200);
   // names / details in the background

@@ -178,6 +178,24 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
     await p.click('#f-exit'); await p.waitForTimeout(300);
     ok(`flyby ${fly[j].name}: exit restores solar view`, await p.evaluate(() => __neo.mode) === 'solar');
   }
+  // V3: upcoming close approaches (JPL cad.api, next 24 months)
+  {
+    const CA = JSON.parse(fs.readFileSync('/home/user/neo-risk/docs/data/closeapp.json', 'utf8')).items;
+    if (await p.isVisible('#open-enc') && !(await p.isVisible('#enc'))) await p.click('#open-enc');
+    await p.click('#enc-tab-next'); await p.waitForTimeout(300);
+    const nRows = await p.$$eval('#ca-list .ca', r => r.length);
+    ok('close approaches: one row per JPL approach', nRows === CA.length, `${nRows} vs ${CA.length}`);
+    const j = CA.findIndex(x => x.row >= 0);
+    await p.click(`#ca-list .ca[data-i="${j}"]`); await p.waitForTimeout(400);
+    const st = await p.evaluate(() => ({ jd: __neo.simJD, sel: __neo.selected, playing: __neo.playing }));
+    ok('close approach click jumps to its date', Math.abs(st.jd - CA[j].jd) < 1e-3, `${st.jd} vs ${CA[j].jd}`);
+    ok('close approach click selects the asteroid', st.sel === CA[j].row && st.playing === false);
+    // selecting swaps the encounters panel for the asteroid card: clear the selection, reopen, reset the tab
+    await p.keyboard.press('Escape'); await p.waitForTimeout(150);
+    if (!(await p.isVisible('#enc-tab-feat')) && await p.isVisible('#open-enc')) await p.click('#open-enc');
+    await p.click('#enc-tab-feat');
+    if (await p.isVisible('#open-enc')) await p.click('#open-enc');           // close it again (narrow layout)
+  }
   // encounter list button path
   await p.keyboard.press('Escape'); await p.waitForTimeout(200);
   // below 1180 px the list sits behind the "Close encounters" button, as a user would see it
