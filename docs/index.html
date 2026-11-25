@@ -26,6 +26,7 @@ button { font: inherit; color: inherit; }
   backdrop-filter: blur(14px) saturate(1.3); -webkit-backdrop-filter: blur(14px) saturate(1.3);
   box-shadow: 0 10px 40px rgba(0,0,0,.35); }
 .hud { position: fixed; z-index: 10; }
+.row-end { text-align: right; margin-bottom: 6px; }
 .eyebrow { font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--ink-3); }
 .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 
@@ -120,7 +121,7 @@ dl.kv dd { margin: 0; text-align: right; font-family: var(--mono); font-size: 12
 .mark.now { background: #3dff8e; box-shadow: 0 0 10px #3dff8e; width: 3px; height: 16px; border-radius: 2px; border: 0; margin-left: -1.5px; top: -2px; pointer-events: none; }
 .tl-scale { display: flex; justify-content: space-between; font-size: 10px; color: var(--ink-3); margin-top: 2px; }
 @media (max-width: 1180px) { #timeline { left: 18px; right: 18px; width: auto; min-width: 0; transform: none; } }
-@media (max-width: 1180px) and (min-width: 761px) {
+@media (max-width: 1180px) and (min-width: 901px) {
   /* three top panels must fit side by side: brand | clock | side */
   #brand { max-width: 250px; } #brand > p:not(.note) { display: none; }
   #side { width: 270px; }
@@ -134,7 +135,7 @@ dl.kv dd { margin: 0; text-align: right; font-family: var(--mono); font-size: 12
 
 /* ---------- encounters */
 #enc { left: 18px; bottom: 18px; width: 330px; padding: 12px; }
-#enc .list { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; max-height: calc(100vh - 330px); overflow: auto; }
+#enc .list { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }   /* the panel itself scrolls (no nested scroll areas) */
 .enc { display: grid; grid-template-columns: 1fr auto; gap: 1px 10px; padding: 7px 10px; border-radius: 10px; border: 1px solid var(--line);
   background: rgba(255,255,255,.025); cursor: pointer; text-align: left; }
 .enc:hover { background: rgba(255,181,71,.08); border-color: rgba(255,181,71,.4); }
@@ -180,7 +181,7 @@ body.flyby #fly, body.flyby #flybar { display: block; }
 #tour h3 { margin: 4px 0 6px; font-size: 17px; font-weight: 600; }
 #tour p { margin: 0; color: var(--ink-2); font-size: 13px; line-height: 1.55; }
 body.flyby #tour { top: auto; bottom: 150px; }
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   #tour { top: auto; bottom: 120px; }
   /* in a flyby the tour card takes the readout panel's place at the top, leaving Earth visible */
   body.flyby #tour { top: 12px; bottom: auto; }
@@ -206,15 +207,40 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 #err { position: fixed; inset: 0; display: none; place-items: center; z-index: 40; padding: 24px; text-align: center; color: var(--ink-2); }
 
 /* ---------- responsive */
-.mobile-only, .narrow-only { display: none !important; }
+.mobile-only, .narrow-only, .phone-only { display: none !important; }
+/* phones in landscape: a one-line brand panel */
+@media (max-width: 900px) and (max-height: 500px) {
+  #brand { padding: 6px 10px !important; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  #brand .eyebrow { display: none; } #brand h1 { font-size: 16px; margin: 0; } #brand nav { margin-top: 0; }
+}
+/* short desktop screens: drop the description so the panels below keep their room */
+@media (max-height: 560px) and (min-width: 901px) { #brand > p:not(.note), #brand .note { display: none; } }
+/* touch screens: every control at least 32 px tall (WCAG 2.5.8 asks 24) */
+@media (pointer: coarse) {
+  .chip, .btn, .icon, .toggles label, .enc, #results button { min-height: 32px; }
+  .toggles label { padding: 4px 0; }
+  #scrub, #tl { height: 28px; }
+  .mark { width: 16px; height: 16px; margin-left: -8px; }
+}
 @media (max-width: 1180px) {
   .narrow-only { display: inline-flex !important; }
   #enc { display: none; bottom: 74px; }
   body.enc-open #enc { display: block; }
   body.enc-open #card { display: none !important; }
 }
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .mobile-only { display: inline-flex !important; }
+  .phone-only { display: block !important; }
+  /* while a bottom sheet is open the brand panel shrinks to its title, leaving room for the sheet */
+  /* (the sheet buttons stay, so another sheet is always one tap away) */
+  body.card-open #brand nav > :not(#open-side):not(#open-enc), body.side-open #brand nav > :not(#open-side):not(#open-enc),
+  body.enc-open #brand nav > :not(#open-side):not(#open-enc),
+  body.card-open #brand .note, body.side-open #brand .note, body.enc-open #brand .note { display: none !important; }
+  body.card-open #brand .eyebrow, body.side-open #brand .eyebrow, body.enc-open #brand .eyebrow { display: none; }
+  /* compact time bar: three speeds + Now; the date and Copy link live in the menu sheet */
+  #timebar #jump, #timebar #share, #timebar .sep, #speeds [data-s="3600"], #speeds [data-s="604800"] { display: none; }
+  #timebar { overflow: visible !important; gap: 5px; }
+  #timebar .icon { width: 32px; }
   #brand { left: 12px; top: 12px; right: 12px; max-width: none; padding: 10px 12px; }
   #brand p { display: none; }
   #clock { top: auto; bottom: 64px; left: 12px; right: 12px; transform: none; min-width: 0; width: auto; padding: 6px 10px; }
@@ -224,8 +250,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
   body.side-open #card, body.side-open #enc { display: none !important; }
   #card { left: 12px; right: 12px; top: auto; width: auto; bottom: 122px; max-height: 52vh; }
   #enc { left: 12px; right: 12px; width: auto; bottom: 122px; }
-  #enc .list { max-height: 45vh; }
-  #timebar { bottom: 12px; left: 12px; right: 12px; transform: none; max-width: none; flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; }
+  #timebar { bottom: 12px; left: 12px; right: 12px; transform: none; max-width: none; flex-wrap: nowrap; justify-content: center; }
   #timebar .chips { flex-wrap: nowrap; }
   #fly { left: 12px; right: 12px; top: 12px; width: auto; padding: 12px; max-height: 46vh; overflow: auto; }
   #fly .story, #fly .note, #fly dl { display: none; }
@@ -277,6 +302,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 
 <!-- search + layers -->
 <div id="side" class="hud glass">
+  <div class="row-end phone-only"><button class="chip" id="close-side">Close</button></div>
   <div class="search">
     <input id="q" type="search" placeholder="Find an asteroid: Apophis, Bennu, 2024 YR4…" autocomplete="off" aria-label="Search asteroids">
     <div id="results" class="glass" role="listbox"></div>
@@ -299,6 +325,11 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
     <div class="legend"><div class="ramp" role="img" aria-label="Risk colour scale from low (dim grey) to high (bright amber-white)"></div>
       <div class="ramp-l"><span>0.1%</span><span>1%</span><span>10%</span><span>100%</span></div></div>
     <div class="note">Brighter and larger = higher out-of-fold risk score. Scores are research model outputs, not impact probabilities.</div>
+  </div>
+  <div class="group phone-only">
+    <div class="eyebrow">Time</div>
+    <div class="chips"><input type="date" id="jump-m" class="date-in" min="1950-01-01" max="2099-12-31" aria-label="Jump to a date">
+      <button class="chip" id="share-m">Copy link to this view</button></div>
   </div>
   <div class="group">
     <div class="eyebrow">View from</div>
@@ -326,6 +357,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 
 <!-- encounters -->
 <div id="enc" class="hud glass">
+  <div class="row-end phone-only"><button class="chip" id="close-enc">Close</button></div>
   <div class="eyebrow">Close encounters · JPL data</div>
   <div class="chips" style="margin-top:8px" role="group" aria-label="Encounter list">
     <button class="chip" id="enc-tab-feat" aria-pressed="true">Featured flybys</button>
@@ -970,7 +1002,7 @@ $("#modes").onclick = e => { const b = e.target.closest("button"); if (!b) retur
   if (selected >= 0) renderCard();
   buildTop(); };
 $("#t-orbits").onchange = () => planets.forEach(P => P.line.visible = $("#t-orbits").checked);
-$("#open-side").onclick = () => { document.body.classList.remove("enc-open"); document.body.classList.toggle("side-open"); };
+$("#open-side").onclick = () => { document.body.classList.remove("enc-open"); document.body.classList.toggle("side-open"); layoutHud(); };
 $("#open-enc").onclick = () => { document.body.classList.remove("side-open"); document.body.classList.toggle("enc-open"); layoutHud(); };
 function applyFilter() {
   astMat.uniforms.uMode.value = modeRisk; astMat.uniforms.uFilter.value = filter; astMat.uniforms.uThr.value = thrTop[modeRisk];
@@ -1075,9 +1107,11 @@ function renderCard() {
 
 // The card sits under the brand panel, whatever that panel's height (wide screens only;
 // narrow layouts position it with CSS as a bottom sheet).
+const PHONE_W = 900;
+function isPhone() { return innerWidth <= PHONE_W; }
 function placeCard() {
   const c = $("#card");
-  if (innerWidth <= 760) { c.style.top = ""; c.style.maxHeight = ""; return; }
+  if (isPhone()) { c.style.top = ""; layoutHud(); return; }
   const top = $("#brand").getBoundingClientRect().bottom + 12;
   c.style.top = top + "px";
   layoutHud();                                            // height capped above the timeline / time bar
@@ -1089,17 +1123,26 @@ function layoutHud() {
   const tlOn = getComputedStyle(tl).display !== "none";
   const floor = tlOn ? tl.getBoundingClientRect().top : tb.top;          // nothing above may reach below this
   for (const s of ["#side", "#card"]) {
-    const e = $(s); if (getComputedStyle(e).display === "none" || innerWidth <= 760) { e.style.maxHeight = ""; continue; }
+    const e = $(s); if (getComputedStyle(e).display === "none") { e.style.maxHeight = ""; continue; }
+    if (isPhone()) {                                     // bottom sheet: between the brand panel and the clock
+      const roof = $("#brand").getBoundingClientRect().bottom + 8;
+      e.style.maxHeight = Math.max(96, innerHeight - 122 - roof) + "px"; e.style.overflowY = "auto"; continue; }
     e.style.maxHeight = Math.max(160, floor - 8 - e.getBoundingClientRect().top) + "px"; e.style.overflowY = "auto";
   }
   const enc = $("#enc");
-  if (innerWidth <= 1180 && innerWidth > 760) enc.style.bottom = Math.round(innerHeight - floor + 8) + "px"; else enc.style.bottom = "";
+  if (innerWidth <= 1180 && !isPhone()) enc.style.bottom = Math.round(innerHeight - floor + 8) + "px"; else enc.style.bottom = "";
   // never taller than the space it has: under the brand panel and above the timeline / time bar
-  if (innerWidth > 760) {
+  if (!isPhone()) {
     const encBottom = innerWidth <= 1180 ? floor - 8 : innerHeight - 18;
     const roof = innerWidth <= 1180 ? $("#brand").getBoundingClientRect().bottom + 10 : $("#brand").getBoundingClientRect().bottom + 10;
     enc.style.maxHeight = Math.max(140, encBottom - roof) + "px"; enc.style.overflowY = "auto";
-  } else { enc.style.maxHeight = ""; }
+    if (innerWidth > 1180) {                             // wide: lift the panel above the time bar / timeline if they meet
+      const er = enc.getBoundingClientRect(), tr = tb, lr = tlOn ? tl.getBoundingClientRect() : tb;
+      if (er.right > Math.min(tr.left, lr.left) - 6) {
+        const lift = innerHeight - Math.min(tr.top, lr.top) + 8;
+        enc.style.bottom = lift + "px"; enc.style.maxHeight = Math.max(140, innerHeight - lift - roof) + "px"; }
+    }
+  } else { const roof = $("#brand").getBoundingClientRect().bottom + 8; enc.style.maxHeight = Math.max(96, innerHeight - 122 - roof) + "px"; enc.style.overflowY = "auto"; }
 }
 addEventListener("resize", () => { layoutHud(); if (selected >= 0) placeCard(); if (FLY) renderTimelineMarks(); });
 layoutHud();
@@ -1179,6 +1222,10 @@ canvas.addEventListener("pointermove", e => {
 const helpEl = $("#help");
 const toggleHelp = (show = helpEl.hidden) => { helpEl.hidden = !show; };
 $("#open-help").onclick = () => toggleHelp();
+$("#close-side").onclick = () => { document.body.classList.remove("side-open"); layoutHud(); };
+$("#close-enc").onclick = () => { document.body.classList.remove("enc-open"); layoutHud(); };
+$("#jump-m").addEventListener("change", e => { $("#jump").value = e.target.value; $("#jump").dispatchEvent(new Event("change")); });
+$("#share-m").onclick = () => $("#share").click();
 addEventListener("keydown", e => {
   if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.target.tagName === "BUTTON" && (e.code === "Space" || e.key === "Enter")) return;   // let focused buttons activate
@@ -1678,7 +1725,9 @@ $("#share").onclick = async () => {
   setTimeout(() => { btn.textContent = "Copy link"; }, 2500);
 };
 let last = performance.now();
+const perf = { jsMs: 0, n: 0 };                          // main-thread time per frame (EMA), for diagnostics
 function frame(now) {
+  const tJs = performance.now();
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
   const tsec = now / 1000;
   stars.material.uniforms.uTime.value = tsec;
@@ -1714,6 +1763,7 @@ function frame(now) {
   } else {
     updateFlyby(dt);
   }
+  perf.jsMs = perf.n++ ? perf.jsMs * 0.9 + (performance.now() - tJs) * 0.1 : performance.now() - tJs;
   composer.render();
   // frame-rate monitor (starts once the intro is over; 3-second windows)
   if (quality.auto && intro.t >= 1 && !document.hidden) {
@@ -1735,6 +1785,7 @@ window.__neo = {
   get ready() { return !!OBJ && intro.t >= 1; },                               // data loaded and intro finished
   get view() { return { f: filter, m: modeRisk, cam: [...camera.position.toArray(), ...controls.target.toArray()] }; }, shareURL,
   get discCount() { return discCount; },
+  get perf() { return { jsMs: perf.jsMs }; }, pick: (x, y) => pick(x, y, 12),
   get frame() { return viewFrame; }, get worldOffset() { return world.position.toArray(); },
   earthScene: () => W(EARTH().now).toArray(),
   get cloud() { return { count: cloudPts.visible ? cloudGeo.drawRange.count : 0 }; }, cloudSpread: jd => cloudSpread(jd),

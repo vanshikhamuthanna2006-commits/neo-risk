@@ -15,3 +15,9 @@
 - [x] V2 **Uncertainty cloud.** Each selected high-risk asteroid shows its ~32 covariance clones, anchored to the displayed position. Verify in data: each cloud's centre equals that object's elements in orbits.bin. Verify in e2e: the clones are present, and their spread grows over 20 years.
 - [x] V3 **Upcoming close approaches** (JPL cad.api, next 24 months, <= 0.05 au). Shown as a list next to the featured flybys; clicking an entry jumps to its date and selects the asteroid. Verify: the list is sorted and within 0.05 au, and a click sets the time and the selection.
 - [x] V4 **Earth-centred view.** A frame switch that keeps Earth at the origin. Verify: in the Earth frame the scene origin equals Earth's position, and switching back restores the Sun-centred frame.
+
+## Round 3: simulated usability (branch loop/site-v4); verifier adds tests/web/usability.js --assert
+- [x] U1 **Layout on every device.** Phones get a compact time bar (no off-screen controls; the date and Copy link move to the menu sheet). The card fits under the brand panel. Short screens get a compact brand panel. Tablets up to 900 px wide use the phone layout. The encounters panel clears the time bar on 1280–1366 px laptops. Touch targets are at least 24 px.
+- [ ] U2 **GPU picking.** Hover and click use an ID render of a 15×15 px area instead of 43k CPU Kepler solves. Target: < 30 ms at 4× CPU throttle.
+- [ ] U3 **Content found by the personas.** A plain-language risk statement (the Torino and Palermo maxima, read live from the data); "near misses, not impacts", with LD spelled out; the data snapshot date on both pages and in the CSV; a source-code link; keyboard focus moves to the card after a search.
+- [ ] U4 **Faster first card on phones.** Split explain.json into 1,000-object chunks.

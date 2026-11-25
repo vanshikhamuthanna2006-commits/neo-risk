@@ -84,6 +84,11 @@ dl.kv dd { margin: 0; font-variant-numeric: tabular-nums; }
 .tip b { font-weight: 600; }
 .note { border-left: 3px solid var(--accent); padding: 8px 12px; background: var(--surface-2); border-radius: 0 8px 8px 0; font-size: 14px; margin: 10px 0; }
 .hidden { display: none !important; }
+/* touch screens: controls at least 32 px tall (WCAG 2.5.8 asks 24) */
+@media (pointer: coarse) {
+  header p > a, .row > label, nav.tabs button, .seg button, .icon-btn, select, input[type="search"] { min-height: 32px; display: inline-flex; align-items: center; }
+  .row > label { padding: 4px 0; }
+}
 table.gaps td { white-space: normal; vertical-align: top; padding: 10px 8px; line-height: 1.45; }
 table.gaps td:first-child { width: 22%; } table.gaps td:nth-child(2) { width: 9%; } table.gaps td:nth-child(3) { width: 40%; }
 table.gaps tbody tr { cursor: default; }

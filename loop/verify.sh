@@ -17,5 +17,7 @@ echo "== pytest";      python3 -m pytest -q 2>&1 | tail -1;            [ "${PIPE
 echo "== data";        python3 tests/web/check_data.py || rc=1
 echo "== browser e2e"; node tests/web/e2e.js "$THREE" tests/web/horizons_truth.json loop/shots > loop/e2e.txt 2>&1 || rc=1
 grep -E "FAIL|CRASH|checks passed" loop/e2e.txt
+echo "== usability (devices, slow CPU, personas)"; node tests/web/usability.js "$THREE" loop/shots/ux --assert > loop/ux.txt 2>&1 || rc=1
+grep -A40 -E "^UX (PASS|FAIL)" loop/ux.txt | head -40
 echo "== VERIFY $( [ $rc -eq 0 ] && echo PASS || echo FAIL )"
 exit $rc
