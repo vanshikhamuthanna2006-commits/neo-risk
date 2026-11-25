@@ -12,3 +12,4 @@ __pycache__/
 /loop/shots/
 /loop/last_verify.txt
 /loop/e2e.txt
+/results/refresh_priors.log
