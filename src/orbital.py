@@ -59,3 +59,31 @@ def periapsis_distance(r: np.ndarray, v: np.ndarray, mu: float) -> np.ndarray:
     rn = np.linalg.norm(r, axis=-1)
     e = np.linalg.norm(np.cross(v, h) / mu - r / rn[:, None], axis=-1)
     return np.einsum("ij,ij->i", h, h) / (mu * (1 + e))
+
+
+def cartesian_to_elements(r: np.ndarray, v: np.ndarray, mu: float) -> np.ndarray:
+    """Osculating elliptic elements (n, 6): a, e, inc, Omega, omega, M [rad] from states (n, 3).
+
+    Inverse of ``elements_to_cartesian`` for bound orbits.  Degenerate angles are fixed by
+    convention: for inc ~ 0 the node is set to 0 and omega is measured from +x.
+    """
+    r, v = np.atleast_2d(r).astype(float), np.atleast_2d(v).astype(float)
+    rn = np.linalg.norm(r, axis=1)
+    h = np.cross(r, v)
+    hn = np.linalg.norm(h, axis=1)
+    evec = np.cross(v, h) / mu - r / rn[:, None]
+    e = np.linalg.norm(evec, axis=1)
+    a = 1.0 / (2.0 / rn - np.einsum("ij,ij->i", v, v) / mu)
+    inc = np.arccos(np.clip(h[:, 2] / hn, -1, 1))
+    nvec = np.stack([-h[:, 1], h[:, 0], np.zeros(len(h))], axis=1)       # z x h
+    nn = np.linalg.norm(nvec, axis=1)
+    flat = nn < 1e-12 * hn
+    Omega = np.where(flat, 0.0, np.arctan2(nvec[:, 1], nvec[:, 0]))
+    # argument of perihelion: angle from the node to e, in the orbital plane
+    hhat = h / hn[:, None]
+    nhat = np.where(flat[:, None], np.array([1.0, 0.0, 0.0]), nvec / np.where(nn == 0, 1, nn)[:, None])
+    omega = np.arctan2(np.einsum("ij,ij->i", np.cross(nhat, evec), hhat), np.einsum("ij,ij->i", nhat, evec))
+    E = np.arctan2(np.einsum("ij,ij->i", r, v) / np.sqrt(mu * a), 1.0 - rn / a)
+    M = E - e * np.sin(E)
+    wrap = lambda x: np.mod(x, 2 * np.pi)
+    return np.column_stack([a, e, inc, wrap(Omega), wrap(omega), wrap(M)])

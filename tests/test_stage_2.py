@@ -234,3 +234,22 @@ def test_large_alignment_group_regression():
     for k in (0, 77, 149):
         st1, _ = align_group(2456771.5, T0, nom[[k]], clone[[k]], cfg)
         np.testing.assert_allclose(st[k], st1[0], rtol=1e-9, atol=1e-12)
+
+
+def test_cartesian_to_elements_round_trip():
+    """elements -> state -> elements recovers the input (angles mod 2 pi), including a
+    near-planar orbit where the node is degenerate (position must still match)."""
+    from src.orbital import cartesian_to_elements
+    rng = np.random.default_rng(3)
+    n = 500
+    el = np.column_stack([rng.uniform(0.6, 4.0, n), rng.uniform(0.0, 0.95, n), rng.uniform(0.01, 2.5, n),
+                          rng.uniform(0, 2 * np.pi, n), rng.uniform(0, 2 * np.pi, n), rng.uniform(0, 2 * np.pi, n)])
+    r, v = elements_to_cartesian(*el.T, mu=MU_SUN)
+    back = cartesian_to_elements(r, v, MU_SUN)
+    np.testing.assert_allclose(back[:, :3], el[:, :3], rtol=1e-9, atol=1e-10)
+    ang = np.angle(np.exp(1j * (back[:, 3:] - el[:, 3:])))
+    assert np.abs(ang).max() < 1e-8
+    flat = np.array([[1.2, 0.3, 1e-14, 0.4, 1.1, 2.0]])
+    r1, v1 = elements_to_cartesian(*flat.T, mu=MU_SUN)
+    r2, v2 = elements_to_cartesian(*cartesian_to_elements(r1, v1, MU_SUN).T, mu=MU_SUN)
+    np.testing.assert_allclose(np.r_[r2.ravel(), v2.ravel()], np.r_[r1.ravel(), v1.ravel()], atol=1e-10)

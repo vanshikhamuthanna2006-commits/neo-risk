@@ -589,7 +589,23 @@ const astMat = new THREE.ShaderMaterial({
   vertexShader: astVS, fragmentShader: astFS, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
 });
 let EL = null, NOBJ = 0, OBJ = null, FLY = null;
-let astPoints = null;
+let astPoints = null, astGeo = null;
+const OVR = [];
+function applyOverrides(jd) {
+  if (!astGeo) return;
+  let dirty = false;
+  for (const o of OVR) {
+    const j = Math.max(0, Math.min(o.n - 1, Math.round((jd - o.t0) / o.step)));
+    if (j === o.j) continue;
+    o.j = j; dirty = true;
+    const s = o.el.slice(j * 6, j * 6 + 6), base = o.k * 10, ep = o.t0 + j * o.step - J2000 - T_BASE;
+    EL.set(s, base); EL[base + 6] = ep;
+    astGeo.attributes.aEl1.array.set(s.slice(0, 3), o.k * 3);
+    astGeo.attributes.aEl2.array.set(s.slice(3, 6), o.k * 3);
+    astGeo.attributes.aAux.array[o.k * 4] = ep;
+  }
+  if (dirty) for (const n of ["aEl1", "aEl2", "aAux"]) astGeo.attributes[n].needsUpdate = true;
+}
 const thrTop = { 0: 1, 1: 1 };
 
 // =====================================================================================
@@ -699,7 +715,8 @@ function updateClock() {
   const live = playing && speed === 1 && dir === 1 && Math.abs(simJD - jdNow()) < 2 / 1440;
   $("#live").style.display = live ? "inline-flex" : "none";
   const s = SPEEDS.find(x => x[1] === speed);
-  $("#rate").textContent = live ? "" : (playing ? (dir < 0 ? "◀ " : "") + (s ? s[0] : "") : "Paused") + (simJD > 2469807.5 ? " · planet positions extrapolated past 2050" : "");
+  $("#rate").textContent = live ? "" : (playing ? (dir < 0 ? "◀ " : "") + (s ? s[0] : "") : "Paused") + (Math.abs(simJD - 2461200.5) > 15 * 365.25 ? " · asteroid positions approximate this far from 2026" : "")
+    + (simJD > 2469807.5 ? " · planet positions extrapolated past 2050" : "");
 }
 
 // =====================================================================================
@@ -795,7 +812,9 @@ function renderCard() {
       <button class="btn" id="c-follow">${follow ? "Stop following" : "Follow"}</button>
       <a class="btn" href="explorer.html?obj=${encodeURIComponent(OBJ.pdes[k])}#explore">Details ↗</a>
     </div>
-    <div class="note">Position from two-body Kepler motion of JPL's osculating elements; risk scores are out-of-fold model outputs, not impact probabilities.</div>`;
+    <div class="note">${fb ? "Position from JPL Horizons orbit elements, updated every 30 days, so the change of orbit at the close encounter is included."
+      : `Position from JPL elements propagated to 2026 with this project's N-body model, then two-body motion.${dmin != null && dmin < 0.01 ? ` Earth's gravity bends this orbit at the ${Math.floor(jdToYear(2461200.5 + tmin * 365.25))} encounter, so positions after it are approximate.` : ""}`}
+      Risk scores are out-of-fold model outputs, not impact probabilities.</div>`;
   $("#card").classList.add("show");
   $("#c-close").onclick = () => select(-1);
   $("#c-follow").onclick = () => { follow = !follow; renderCard(); if (follow) flyTo(selNow, Math.max(1.2, camera.position.distanceTo(controls.target) * 0.5)); };
@@ -1157,6 +1176,11 @@ async function load() {
   g.setAttribute("aEl1", new THREE.BufferAttribute(e1, 3));
   g.setAttribute("aEl2", new THREE.BufferAttribute(e2, 3));
   g.setAttribute("aAux", new THREE.BufferAttribute(aux, 4));
+  astGeo = g;
+  // featured asteroids: JPL Horizons osculating elements every 30 days replace the single
+  // epoch set, so orbit changes at close encounters (Apophis 2029) are represented
+  for (const f of FLY.flybys) if (f.el) OVR.push({ k: f.row, t0: f.el_t0, step: f.el_step, el: f.el, n: f.el.length / 6, j: -1 });
+  applyOverrides(simJD);
   astPoints = new THREE.Points(g, astMat); astPoints.frustumCulled = false;
   scene.add(astPoints);
   for (const m of [0, 1]) {                                 // top-1% threshold per mode
@@ -1190,6 +1214,7 @@ function frame(now) {
   if (mode === "solar") {
     if (playing) simJD = Math.min(JD_MAX, Math.max(JD_MIN, simJD + dir * speed * dt / 86400));
     astMat.uniforms.uT.value = simJD - J2000 - T_BASE;
+    applyOverrides(simJD);
     sunMat.uniforms.uTime.value = tsec;
     updatePlanets(simJD);
     updateSelection(simJD);
@@ -1221,7 +1246,14 @@ addEventListener("resize", () => {
   renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
 });
 // expose for automated checks
-window.__neo = { get simJD() { return simJD; }, select: k => select(k, true), enterFlyby: j => enterFlyby(j), exitFlyby, get mode() { return mode; } };
+window.__neo = {
+  get simJD() { return simJD; }, get mode() { return mode; }, get selected() { return selected; },
+  select: k => select(k, true), enterFlyby: j => enterFlyby(j), exitFlyby,
+  rowOf: des => OBJ ? OBJ.pdes.indexOf(des) : -1,
+  helioAst: (k, jd) => { applyOverrides(jd); return objPos(k, jd); },          // au, ecliptic J2000
+  helioPlanet: (name, jd) => kepler(...planetElements(PLANETS.find(p => p[0] === name), jd)),
+  flybyAst: jd => F ? astAt(jd) : null,                                       // km, geocentric
+};
 </script>
 </body>
 </html>
