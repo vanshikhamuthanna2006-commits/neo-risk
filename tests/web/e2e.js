@@ -143,6 +143,7 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
     return summary.tables[tab].find(r => r.model === model)[col]; };
   const bad = tagged.filter(([src, v]) => Math.abs(lookup(src) - +v) > 1e-9);
   ok('gaps: numbers match summary.json', tagged.length >= 12 && bad.length === 0, `${tagged.length} numbers, ${bad.length} mismatched ${bad.slice(0, 2)}`);
+  await e.click('nav.tabs [data-tab="explore"]'); await e.waitForTimeout(200);   // later steps use the search box
   await e.click('#m-pha'); await e.waitForTimeout(200);
   await e.fill('#q', ''); await e.dispatchEvent('#q', 'input'); await e.waitForTimeout(300);
   ok('explorer Mode A list', /43,160 objects/.test(await e.textContent('#count')));
