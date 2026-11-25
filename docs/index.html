@@ -139,6 +139,7 @@ dl.kv dd { margin: 0; text-align: right; font-family: var(--mono); font-size: 12
   background: rgba(255,255,255,.025); cursor: pointer; text-align: left; }
 .enc:hover { background: rgba(255,181,71,.08); border-color: rgba(255,181,71,.4); }
 .enc[disabled] { opacity: .45; cursor: default; }
+#enc .list[hidden], #ca-note[hidden] { display: none; }
 .enc[disabled]:hover { background: rgba(255,255,255,.025); border-color: var(--line); }
 #ca-list .d { color: var(--cyan); }
 .enc b { font-weight: 600; }
@@ -298,6 +299,13 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
     <div class="legend"><div class="ramp" role="img" aria-label="Risk colour scale from low (dim grey) to high (bright amber-white)"></div>
       <div class="ramp-l"><span>0.1%</span><span>1%</span><span>10%</span><span>100%</span></div></div>
     <div class="note">Brighter and larger = higher out-of-fold risk score. Scores are research model outputs, not impact probabilities.</div>
+  </div>
+  <div class="group">
+    <div class="eyebrow">View from</div>
+    <div class="chips" id="frames" role="group" aria-label="Reference frame">
+      <button class="chip" data-fr="sun" aria-pressed="true">Sun</button>
+      <button class="chip" data-fr="earth" aria-pressed="false" title="Keep Earth fixed and watch asteroids move relative to it">Earth</button>
+    </div>
   </div>
   <div class="group">
     <div class="eyebrow">Layers</div>
@@ -566,7 +574,11 @@ scene.add(stars);
 // =====================================================================================
 // Sun
 // =====================================================================================
-const sunGroup = new THREE.Group(); scene.add(sunGroup);
+// everything in the solar system lives in `world`; shifting it re-centres the view (Sun or Earth frame)
+const world = new THREE.Group(); scene.add(world);
+const W = v => v.clone().add(world.position);           // world-local -> scene coordinates
+let viewFrame = "sun";
+const sunGroup = new THREE.Group(); world.add(sunGroup);
 const sunMat = new THREE.ShaderMaterial({
   uniforms: { uTime: { value: 0 } },
   vertexShader: `varying vec3 vN; varying vec3 vP; varying vec3 vV;
@@ -607,7 +619,7 @@ corona.scale.setScalar(6); sunGroup.add(corona);
 // scale grid in the ecliptic plane (au rings + 30° spokes)
 // =====================================================================================
 const GRID_AU = [1, 2, 3, 5, 10, 20, 30];
-const grid = new THREE.Group(); scene.add(grid);
+const grid = new THREE.Group(); world.add(grid);
 for (const r of GRID_AU) {
   const pts = []; for (let k = 0; k <= 256; k++) { const t = k / 256 * TAU; pts.push(new THREE.Vector3(Math.cos(t) * r * AU, 0, Math.sin(t) * r * AU)); }
   grid.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
@@ -644,14 +656,14 @@ const planets = PLANETS.map(p => {
     const rm = new THREE.MeshBasicMaterial({ color: 0xd9c49a, side: THREE.DoubleSide, transparent: true, opacity: 0.45, depthWrite: false });
     const ring = new THREE.Mesh(rg, rm); ring.rotation.x = Math.PI / 2 - 0.47; g.add(ring);
   }
-  scene.add(g);
+  world.add(g);
   // orbit trail: 360 vertices, per-vertex alpha updated each frame (fades behind the planet)
   const N = 360, pos = new Float32Array((N + 1) * 3), col = new Float32Array((N + 1) * 4);
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
   geo.setAttribute("color", new THREE.BufferAttribute(col, 4));
   const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
-  line.frustumCulled = false; scene.add(line);
+  line.frustumCulled = false; world.add(line);
   return { def: p, g, mesh, halo, line, N, pos, col, base: new THREE.Color(p[3]), lastEl: null, now: new THREE.Vector3() };
 });
 function updatePlanets(jd) {
@@ -661,7 +673,7 @@ function updatePlanets(jd) {
     P.now.copy(ecl(x, y, z));
     P.g.position.copy(P.now);
     P.mesh.material.uniforms.uSun.value.set(0, 0, 0);
-    const dist = camera.position.distanceTo(P.now);
+    const dist = camera.position.distanceTo(W(P.now));
     const r = Math.max(P.def[4] * 0.06, dist * 0.0045 * (P.def[0] === "Earth" ? 1.25 : 1));
     P.mesh.scale.setScalar(r);
     P.halo.scale.setScalar(r * (P.def[0] === "Earth" ? 9 : 6));
@@ -762,7 +774,7 @@ function topRows(m, n) {
   return ks.slice(0, n);
 }
 function buildTop() {
-  if (TOP.obj) { scene.remove(TOP.obj); TOP.obj.geometry.dispose(); TOP.obj = null; }
+  if (TOP.obj) { world.remove(TOP.obj); TOP.obj.geometry.dispose(); TOP.obj = null; }
   TOP.rows = []; TOP.count = 0;
   if (!EL || !$("#t-top").checked) return;
   const rows = topRows(modeRisk, 50), S = 256, pos = new Float32Array(rows.length * S * 6), col = new Float32Array(rows.length * S * 8);
@@ -782,7 +794,7 @@ function buildTop() {
   const g = new THREE.BufferGeometry();
   g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("color", new THREE.BufferAttribute(col, 4));
   TOP.obj = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
-  TOP.obj.frustumCulled = false; scene.add(TOP.obj);
+  TOP.obj.frustumCulled = false; world.add(TOP.obj);
   TOP.rows = rows; TOP.count = rows.length;
 }
 $("#t-top").onchange = buildTop;
@@ -795,9 +807,9 @@ const SEL_N = 512, selPos = new Float32Array((SEL_N + 1) * 3), selCol = new Floa
 selGeo.setAttribute("position", new THREE.BufferAttribute(selPos, 3));
 selGeo.setAttribute("color", new THREE.BufferAttribute(selCol, 4));
 const selLine = new THREE.Line(selGeo, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
-selLine.frustumCulled = false; selLine.visible = false; scene.add(selLine);
+selLine.frustumCulled = false; selLine.visible = false; world.add(selLine);
 const selMark = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW_SOFT, color: 0x7fd8ff, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
-selMark.visible = false; scene.add(selMark);
+selMark.visible = false; world.add(selMark);
 let selected = -1, follow = false;
 const selNow = new THREE.Vector3();
 
@@ -805,9 +817,9 @@ const selNow = new THREE.Vector3();
 const CLOUDS = new Map(), T_CLOUD = 2461200.5;
 const cloudGeo = new THREE.BufferGeometry();
 cloudGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(64 * 3), 3));
-const cloudPts = new THREE.Points(cloudGeo, new THREE.PointsMaterial({ color: 0x9fe6ff, size: 3.2, sizeAttenuation: false,
+const cloudPts = new THREE.Points(cloudGeo, new THREE.PointsMaterial({ color: 0x9fe6ff, size: 4, sizeAttenuation: false,
   transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }));
-cloudPts.frustumCulled = false; cloudPts.visible = false; scene.add(cloudPts);
+cloudPts.frustumCulled = false; cloudPts.visible = false; world.add(cloudPts);
 const kepT = (el, jd) => kepler(el[0], el[1], el[2], el[3], el[4], el[5] + GK / (el[0] * Math.sqrt(el[0])) * (jd - T_CLOUD));
 // clone positions (au, ecliptic): clone(t) - centre(t) + displayed(t), so the cloud rides on the asteroid
 function cloudPositions(k, jd) {
@@ -851,8 +863,9 @@ function updateSelection(jd) {
   selGeo.attributes.position.needsUpdate = true; selGeo.attributes.color.needsUpdate = true;
   selNow.set(selPos[0], selPos[1], selPos[2]);
   selMark.position.copy(selNow);
-  const d = camera.position.distanceTo(selNow);
-  selMark.scale.setScalar(d * 0.045 * (1 + 0.15 * Math.sin(performance.now() / 260)));
+  const d = camera.position.distanceTo(W(selNow));
+  // a smaller marker when the uncertainty cloud is drawn, so the clones stay visible
+  selMark.scale.setScalar(d * (cloudPts.visible ? 0.018 : 0.045) * (1 + 0.15 * Math.sin(performance.now() / 260)));
 }
 
 // =====================================================================================
@@ -884,19 +897,19 @@ function place(el, world, show = true, cam = camera) {
 function updateLabels() {
   placed = [];
   const show = $("#t-labels").checked && mode === "solar";
-  const camD = camera.position.length();
+  const camD = camera.position.distanceTo(world.position);   // distance to the Sun
   const sl = label("sel", selected >= 0 && OBJ ? OBJ.name[selected] || OBJ.pdes[selected] : "", "sel big");
-  place(sl, selNow, mode === "solar" && selected >= 0);
+  place(sl, W(selNow), mode === "solar" && selected >= 0);
   const order = ["Earth", "Mars", "Venus", "Jupiter", "Mercury", "Saturn", "Uranus", "Neptune"];
   for (const name of order) {
     const P = planets.find(p => p.def[0] === name);
     const outer = ["Jupiter", "Saturn", "Uranus", "Neptune"].includes(name);
     const el = label("p-" + name, name, "planet" + (name === "Earth" ? " big" : ""));
-    place(el, P.now, show && (!outer || camD > 60) && (outer || camD < 900));
+    place(el, W(P.now), show && (!outer || camD > 60) && (outer || camD < 900));
   }
-  place(label("sun", "Sun", "planet"), new THREE.Vector3(0, 0, 0), show && camD > 6);
+  place(label("sun", "Sun", "planet"), W(new THREE.Vector3(0, 0, 0)), show && camD > 6);
   const ga = -0.62;                                       // ring labels along one bearing, below the planets in priority
-  for (const r of GRID_AU) place(label("g" + r, r + " au", "grid"), new THREE.Vector3(Math.cos(ga) * r * AU, 0, Math.sin(ga) * r * AU),
+  for (const r of GRID_AU) place(label("g" + r, r + " au", "grid"), W(new THREE.Vector3(Math.cos(ga) * r * AU, 0, Math.sin(ga) * r * AU)),
     show && grid.visible && (r <= 5 ? camD < 400 : camD > 80));
 }
 
@@ -1013,7 +1026,7 @@ function select(k, fly = false) {
   if (k < 0) { $("#card").classList.remove("show"); follow = false; return; }
   updateSelection(simJD);
   renderCard();
-  if (fly) { const [a] = objElements(k); flyTo(selNow, Math.min(40, Math.max(6, a * AU * 1.9))); }
+  if (fly) { const [a] = objElements(k); flyTo(W(selNow), Math.min(40, Math.max(6, a * AU * 1.9))); }
   updateURL();
 }
 function renderCard() {
@@ -1056,7 +1069,7 @@ function renderCard() {
   getExplain().then(X => { if (selected === k && $("#why")) $("#why").innerHTML = whyHTML(X, k, modeRisk ? "pha" : "sentry"); })
               .catch(() => { if ($("#why")) $("#why").innerHTML = '<div class="note">Explanation unavailable.</div>'; });
   $("#c-close").onclick = () => select(-1);
-  $("#c-follow").onclick = () => { follow = !follow; renderCard(); if (follow) flyTo(selNow, Math.max(1.2, camera.position.distanceTo(controls.target) * 0.5)); };
+  $("#c-follow").onclick = () => { follow = !follow; renderCard(); if (follow) flyTo(W(selNow), Math.max(1.2, camera.position.distanceTo(controls.target) * 0.5)); };
   if (fb) $("#c-fly").onclick = () => enterFlyby(FLY.flybys.indexOf(fb));
 }
 
@@ -1138,7 +1151,7 @@ function pick(cx, cy, radius) {
   for (let k = 0; k < NOBJ; k++) {
     if (!visible(k)) continue;
     const [x, y, z] = objPos(k, simJD);
-    v.set(x * AU, z * AU, -y * AU).project(camera);
+    v.set(x * AU, z * AU, -y * AU).add(world.position).project(camera);
     if (v.z > 1) continue;
     const sx = (v.x + 1) / 2 * innerWidth, sy = (1 - v.y) / 2 * innerHeight;
     const d = (sx - cx) ** 2 + (sy - cy) ** 2 - risk(k) * 30;   // gentle preference for brighter points
@@ -1188,13 +1201,28 @@ addEventListener("keydown", e => {
   else if (k === "c") { $("#share").click(); }
 });
 
+// ---- reference frame: Sun-centred or Earth-centred (shift the whole solar system)
+const EARTH = () => planets.find(P => P.def[0] === "Earth");
+function setFrame(f) {
+  if (f !== "sun" && f !== "earth") return;
+  $("#frames").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.fr === f));
+  if (f === viewFrame) return;
+  const before = world.position.clone();
+  viewFrame = f; updatePlanets(simJD);
+  world.position.copy(f === "earth" ? EARTH().now.clone().negate() : new THREE.Vector3());
+  const d = world.position.clone().sub(before);           // keep the picture continuous, then glide in
+  camera.position.add(d); controls.target.add(d);
+  if (f === "earth" && intro.t >= 1) flyTo(new THREE.Vector3(0, 0, 0), 8);
+}
+$("#frames").onclick = e => { const b = e.target.closest("button[data-fr]"); if (b) setFrame(b.dataset.fr); };
+
 // ---- guided tour: each step sets up the scene it describes (so Back/Next are idempotent)
 const TOUR = [
   { t: "43,160 near-Earth asteroids, live", x: "Every dot is a known near-Earth asteroid, moving on its real orbit around the Sun. Time is running at one week per second; drag to orbit, scroll to zoom.",
-    go() { if (mode === "flyby") exitFlyby(); select(-1); setTop(false); setFilter(0); setMode(0); setSpeed(604800); playing = true; dir = 1; syncPlay();
+    go() { if (mode === "flyby") exitFlyby(); setFrame("sun"); select(-1); setTop(false); setFilter(0); setMode(0); setSpeed(604800); playing = true; dir = 1; syncPlay();
            flyTo(new THREE.Vector3(0, 0, 0), 34); } },
   { t: "Colour is the model's risk score", x: "Brighter, larger, warmer dots have a higher chance of being on JPL's Sentry impact-monitoring list, according to a model that never sees an asteroid's MOID or brightness. The highlighted ellipses are the orbits of the 50 riskiest.",
-    go() { if (mode === "flyby") exitFlyby(); select(-1); setMode(0); setTop(true); setSpeed(604800); playing = true; syncPlay(); flyTo(new THREE.Vector3(0, 0, 0), 30); } },
+    go() { if (mode === "flyby") exitFlyby(); setFrame("sun"); select(-1); setMode(0); setTop(true); setSpeed(604800); playing = true; syncPlay(); flyTo(new THREE.Vector3(0, 0, 0), 30); } },
   { t: "Apophis, and why it scores as it does", x: "The card shows Apophis's two risk scores and the five measurements that pushed its score up or down most. Its strongest driver: in the uncertainty clones, every copy of its orbit passes within 0.01 au of Earth.",
     go() { if (mode === "flyby") exitFlyby(); setTop(false); const k = OBJ.pdes.indexOf("99942"); if (k >= 0) select(k, true); setSpeed(86400); playing = true; syncPlay(); } },
   { t: "13 April 2029: Apophis passes inside the satellite belt", x: "This replays JPL's own trajectory. Apophis passes 38,011 km from Earth's centre, inside the ring of geostationary satellites (cyan). Earth, the Moon and distances are to scale; the asteroid is drawn enlarged.",
@@ -1570,7 +1598,7 @@ async function load() {
   for (const f of FLY.flybys) if (f.el) OVR.push({ k: f.row, t0: f.el_t0, step: f.el_step, el: f.el, n: f.el.length / 6, j: -1 });
   applyOverrides(simJD);
   astPoints = new THREE.Points(g, astMat); astPoints.frustumCulled = false;
-  scene.add(astPoints);
+  world.add(astPoints);
   for (const m of [0, 1]) {                                 // top-1% threshold per mode
     const r = []; for (let k = 0; k < NOBJ; k++) r.push(EL[k * 10 + 7 + m]);
     r.sort((a, b) => b - a); thrTop[m] = r[Math.floor(NOBJ * 0.01)];
@@ -1578,6 +1606,9 @@ async function load() {
   // view from the link: filter + colour mode (chips) before the first count
   if (Q.has("f")) filter = Math.max(0, Math.min(3, +Q.get("f") | 0));
   if (Q.has("m")) modeRisk = +Q.get("m") === 1 ? 1 : 0;
+  if (Q.get("fr") === "earth") {                       // shared camera is already Earth-relative: set the frame only
+    viewFrame = "earth"; $("#frames").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.fr === "earth"));
+  }
   $("#filters").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", +x.dataset.f === filter));
   $("#modes").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", +x.dataset.m === modeRisk));
   applyFilter(); renderEncounters(); renderTimelineMarks();
@@ -1625,6 +1656,7 @@ function shareURL() {
   if (dir < 0) u.searchParams.set("dir", "-1");
   if (filter) u.searchParams.set("f", filter);
   if (modeRisk) u.searchParams.set("m", modeRisk);
+  if (viewFrame !== "sun") u.searchParams.set("fr", viewFrame);
   if (selected >= 0 && OBJ) u.searchParams.set("obj", OBJ.pdes[selected]);
   u.searchParams.set("cam", [...camera.position.toArray(), ...controls.target.toArray()].map(r).join(","));
   return u.toString();
@@ -1656,6 +1688,7 @@ function frame(now) {
     applyOverrides(simJD);
     sunMat.uniforms.uTime.value = tsec;
     updatePlanets(simJD);
+    if (viewFrame === "earth") world.position.copy(EARTH().now).negate();   // Earth-centred: Earth stays at the origin
     updateSelection(simJD);
     updateCloud(simJD);
     if (intro.t < 1) {
@@ -1667,12 +1700,12 @@ function frame(now) {
       camera.position.lerpVectors(flight.p0, flight.p1, k); controls.target.lerpVectors(flight.t0, flight.t1, k);
       if (flight.t >= 1) flight = null;
     } else if (follow && selected >= 0) {
-      const d = selNow.clone().sub(controls.target); controls.target.add(d); camera.position.add(d);
+      const d = W(selNow).sub(controls.target); controls.target.add(d); camera.position.add(d);
     }
     controls.update();
-    sunGlow.scale.setScalar(Math.max(3.2, camera.position.length() * 0.09));
-    sunGlow2.scale.setScalar(Math.max(12, camera.position.length() * 0.3));
-    corona.scale.setScalar(Math.max(5, camera.position.length() * 0.13));
+    sunGlow.scale.setScalar(Math.max(3.2, camera.position.distanceTo(world.position) * 0.09));
+    sunGlow2.scale.setScalar(Math.max(12, camera.position.distanceTo(world.position) * 0.3));
+    corona.scale.setScalar(Math.max(5, camera.position.distanceTo(world.position) * 0.13));
     if (!reduceMotion) corona.material.rotation += dt * 0.012;
     updateLabels(); updateClock();
     if (!tlDrag) $("#tl").value = simJD;
@@ -1702,6 +1735,8 @@ window.__neo = {
   get ready() { return !!OBJ && intro.t >= 1; },                               // data loaded and intro finished
   get view() { return { f: filter, m: modeRisk, cam: [...camera.position.toArray(), ...controls.target.toArray()] }; }, shareURL,
   get discCount() { return discCount; },
+  get frame() { return viewFrame; }, get worldOffset() { return world.position.toArray(); },
+  earthScene: () => W(EARTH().now).toArray(),
   get cloud() { return { count: cloudPts.visible ? cloudGeo.drawRange.count : 0 }; }, cloudSpread: jd => cloudSpread(jd),
   cloudCentroidOffset: jd => { const P = cloudPositions(selected, jd), d = objPos(selected, jd); if (!P) return Infinity;
     const m = [0, 1, 2].map(i => P.reduce((s, p) => s + p[i], 0) / P.length); return Math.hypot(m[0] - d[0], m[1] - d[1], m[2] - d[2]); },

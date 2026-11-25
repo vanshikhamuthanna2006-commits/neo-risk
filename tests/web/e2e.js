@@ -128,6 +128,17 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
     ok('discovery: off shows all again', /43,160 of 43,160/.test(await p.textContent('#count')));
   }
 
+  // V4: Earth-centred frame
+  {
+    await p.click('#frames [data-fr="earth"]'); await p.waitForTimeout(300);
+    const e1 = await p.evaluate(() => ({ fr: __neo.frame, earth: __neo.earthScene(), off: __neo.worldOffset }));
+    ok('Earth frame: Earth at the origin', e1.fr === 'earth' && Math.hypot(...e1.earth) < 1e-6, JSON.stringify(e1.earth));
+    ok('Earth frame: world shifted by ~1 au', Math.abs(Math.hypot(...e1.off) / 10 - 1) < 0.03, `${(Math.hypot(...e1.off) / 10).toFixed(4)} au`);
+    await p.click('#frames [data-fr="sun"]'); await p.waitForTimeout(200);
+    const e2 = await p.evaluate(() => ({ fr: __neo.frame, off: __neo.worldOffset }));
+    ok('Sun frame restored', e2.fr === 'sun' && Math.hypot(...e2.off) === 0);
+  }
+
   // W3: timeline — date input, flyby markers, scrubber
   await p.fill('#jump', '2029-04-13'); await p.dispatchEvent('#jump', 'change'); await p.waitForTimeout(200);
   const jdJump = await p.evaluate(() => __neo.simJD);
@@ -185,6 +196,10 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
     await p.click('#enc-tab-next'); await p.waitForTimeout(300);
     const nRows = await p.$$eval('#ca-list .ca', r => r.length);
     ok('close approaches: one row per JPL approach', nRows === CA.length, `${nRows} vs ${CA.length}`);
+    ok('close approaches: featured list hidden on this tab', !(await p.isVisible('#enc-list')));
+    await p.click('#enc-tab-feat'); await p.waitForTimeout(150);
+    ok('featured tab: close-approach list hidden', !(await p.isVisible('#ca-list')) && await p.isVisible('#enc-list'));
+    await p.click('#enc-tab-next'); await p.waitForTimeout(150);
     const j = CA.findIndex(x => x.row >= 0);
     await p.click(`#ca-list .ca[data-i="${j}"]`); await p.waitForTimeout(400);
     const st = await p.evaluate(() => ({ jd: __neo.simJD, sel: __neo.selected, playing: __neo.playing }));
