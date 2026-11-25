@@ -661,6 +661,10 @@ function renderGaps() {
     ["No prospective (future-data) validation", "open",
      "Every evaluation so far uses labels from the same download. scripts/prospective_check.py rescores later Sentry additions and removals against today's scores.",
      "Run it again after a few months; on 2026-11-25 too few objects had changed since training to evaluate."],
+    ["Risks beyond the 50-year simulation horizon", "open",
+     (() => { const k = O.pdes.indexOf("101955"); return k < 0 ? "Objects whose risk lies decades or centuries ahead are not seen by a 50-year propagation." :
+       `Bennu is on the Sentry list (its listed impact window is 2178–2300), yet the full model gives it P(Sentry) = ${pct(O.p_sentry_full[k], 2)}: its orbit is so well determined that its clones barely spread in 50 years, and the explanation shows that driving the score down.`; })(),
+     "Longer propagation (100+ years, with Yarkovsky) for well-observed objects, or a separate long-horizon feature set. The pipeline already supports 100 years (run_dynamics.py 100)."],
     ["Non-gravitational forces (Yarkovsky, outgassing) in the uncertainty clones", "open",
      "Clones use the 6×6 gravitational block; for 8×8 covariances with non-gravitational parameters those terms are marginalised out.",
      "Sampling the A1/A2 parameters where JPL provides them would widen clouds for the few objects where it matters (e.g. Bennu)."],

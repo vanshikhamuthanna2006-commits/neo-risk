@@ -185,6 +185,30 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
   ok('share: no page errors', s.errs.length === 0, s.errs.slice(0, 3).join(' | '));
   await s.close();
 
+  // W6: quality + accessibility (atlas)
+  const q6 = await page(b, { width: W, height: H });
+  await q6.goto('http://localhost:8765/index.html'); await q6.waitForFunction(() => window.__neo && __neo.ready, null, { timeout: 60000 });
+  const unnamed = await q6.evaluate(() => [...document.querySelectorAll('button, input, select, a[href]')].filter(el => {
+    if (!el.offsetWidth && !el.offsetHeight) return false;                       // hidden controls are exempt
+    const lab = el.getAttribute('aria-label') || el.getAttribute('title') || (el.labels && el.labels[0] && el.labels[0].textContent) || el.textContent || el.placeholder;
+    return !lab || !lab.trim(); }).map(el => el.outerHTML.slice(0, 80)));
+  ok('atlas: every visible control has an accessible name', unnamed.length === 0, unnamed.slice(0, 2).join(' | '));
+  await q6.keyboard.press('?'); await q6.waitForTimeout(200);
+  ok('"?" opens the keyboard help', await q6.isVisible('#help'));
+  await q6.keyboard.press('Escape'); await q6.waitForTimeout(150);
+  ok('Escape closes the help', !(await q6.isVisible('#help')));
+  const t0k = await q6.evaluate(() => __neo.simJD); await q6.keyboard.press('Space'); await q6.keyboard.press('ArrowRight'); await q6.waitForTimeout(100);
+  ok('→ steps one day forward when paused', Math.abs(await q6.evaluate(() => __neo.simJD) - t0k - 1) < 0.2);
+  await q6.keyboard.press('g'); ok('G toggles the grid', !(await q6.evaluate(() => __neo.gridVisible))); await q6.keyboard.press('g');
+  await q6.keyboard.press('Tab'); await q6.keyboard.press('Tab');
+  ok('keyboard focus is visible', await q6.evaluate(() => { const a = document.activeElement; return a && a !== document.body && getComputedStyle(a).outlineStyle !== 'none'; }));
+  const q0 = await q6.evaluate(() => __neo.quality);
+  await q6.evaluate(() => { __neo.adapt(12); __neo.adapt(12); __neo.adapt(12); });
+  const q1 = await q6.evaluate(() => __neo.quality);
+  ok('low frame rate steps quality down', q1.level > q0.level && (q1.pixelRatio < q0.pixelRatio || q1.bloom === false), JSON.stringify([q0, q1]));
+  ok('a11y page: no errors', q6.errs.length === 0, q6.errs.slice(0, 2).join(' | '));
+  await q6.close();
+
   // deep links + phone
   const m = await page(b, { width: 390, height: 844 });
   await m.goto('http://localhost:8765/index.html?flyby=2024%20YR4');
@@ -284,6 +308,15 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
   ok('theme toggles', await e.evaluate(() => document.documentElement.getAttribute('data-theme')) !== null);
   await e.click('a[href="index.html"]'); await e.waitForURL(/index\.html/);
   ok('explorer → atlas link', true);
+  await e.goto('http://localhost:8765/explorer.html'); await e.waitForSelector('#loading', { state: 'detached', timeout: 30000 });
+  for (const t of ['explore', 'decide', 'results', 'leak', 'gaps']) {
+    await e.click(`nav.tabs [data-tab="${t}"]`); await e.waitForTimeout(150);
+    const un = await e.evaluate(() => [...document.querySelectorAll('button, input, select, a[href]')].filter(el => {
+      if (!el.offsetWidth && !el.offsetHeight) return false;
+      const lab = el.getAttribute('aria-label') || el.getAttribute('title') || (el.labels && el.labels[0] && el.labels[0].textContent) || el.textContent || el.placeholder;
+      return !lab || !lab.trim(); }).map(el => el.outerHTML.slice(0, 80)));
+    ok(`explorer ${t}: every visible control has an accessible name`, un.length === 0, un.slice(0, 2).join(' | '));
+  }
   ok('explorer: no page errors', e.errs.length === 0, e.errs.slice(0, 3).join(' | '));
   await e.close();
 
