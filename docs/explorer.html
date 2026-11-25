@@ -266,7 +266,7 @@ a { color: var(--accent); }
   </div>
 </section>
 
-<footer>Data: NASA/JPL Small-Body Database and Sentry. Scores are model outputs for research use only.</footer>
+<footer>Data: NASA/JPL Small-Body Database and Sentry<span id="snap"></span>. Scores are model outputs for research use only. <a href="https://github.com/vanshikhamuthanna2006-commits/neo-risk" rel="noopener" target="_blank">Source code and method</a>.</footer>
 </div>
 
 <script>
@@ -712,10 +712,11 @@ $("#more").onclick = () => { state.limit += 100; renderTable(); };
 // ---- CSV export: every object matching the filters, in the current mode
 $("#csv").onclick = () => {
   const q = v => { const s = v == null ? "" : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
-  const hdr = ["designation", "name", "class", "arc_days", "first_obs", "a_au", "e", "i_deg", "p_leakfree", "p_full", "conformal_set", "label", "label_kind"];
+  const hdr = ["designation", "name", "class", "arc_days", "first_obs", "a_au", "e", "i_deg", "p_leakfree", "p_full", "conformal_set", "label", "label_kind", "data_snapshot"];
+  const snap = S.sentry_context ? S.sentry_context.snapshot_utc.slice(0, 10) : "";
   const SETN = { haz: "hazardous", benign: "benign", follow: "follow-up", atypical: "follow-up (atypical)" };
   const lines = [hdr.join(",")].concat(filtered().map(i => [O.pdes[i], O.name[i], O.cls[i], O.arc[i], O.first[i], O.a[i], O.e[i], O.i[i],
-    pS(i), pF(i), SETN[confSet(i)] || "", y(i), targetName()].map(q).join(",")));
+    pS(i), pF(i), SETN[confSet(i)] || "", y(i), targetName(), snap].map(q).join(",")));
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([lines.join("\n") + "\n"], { type: "text/csv" }));
   a.download = `neo_${state.mode}_${new Date().toISOString().slice(0, 10)}.csv`;
@@ -792,6 +793,7 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", renderAl
 Promise.all([fetch("data/objects.json").then(r => r.json()), fetch("data/summary.json").then(r => r.json())])
   .then(([o, s]) => {
     O = o; S = s; N = O.pdes.length;
+    if (S.sentry_context) $("#snap").textContent = ` (data snapshot ${S.sentry_context.snapshot_utc.slice(0, 10)})`;
     const classes = [...new Set(O.cls)].filter(Boolean).sort();
     $("#f-cls").insertAdjacentHTML("beforeend", classes.map(c => `<option>${esc(c)}</option>`).join(""));
     $("#loading").remove();

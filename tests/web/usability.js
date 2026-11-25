@@ -65,7 +65,7 @@ const AUDIT = (touch) => {
   const b = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   // ---------------------------------------------------------------- A. device lab
   const DEV = ['iPhone SE', 'iPhone 13', 'Pixel 7', 'Galaxy S9+', 'iPad Mini', 'iPad Pro 11', 'iPhone 13 landscape'];
-  const DESK = [[1280, 720], [1366, 768], [1920, 1080], [2560, 1440]];
+  const DESK = [[960, 600], [1024, 768], [1280, 720], [1366, 768], [1920, 1080], [2560, 1440]];   // incl. short narrow screens
   const targets = [...DEV.map(d => [d, devices[d]]), ...DESK.map(([w, h]) => [`Desktop ${w}x${h}`, { viewport: { width: w, height: h } }])];
   for (const [name, opts] of targets) {
     const { ctx, p } = await open(b, opts, 'index.html');
@@ -122,7 +122,7 @@ const AUDIT = (touch) => {
   };
   await persona('Public visitor (phone)', devices['iPhone 13'], 'Find out whether any asteroid will hit Earth soon', async (p, step, log) => {
     const words = (await p.textContent('body')).toLowerCase();
-    if (!/impact|hit earth|no known/.test(await p.textContent('#brand'))) log.friction.push('the opening panel does not say what the risk to Earth actually is');
+    if (!/impact|hit earth|no known/i.test(await p.innerText('#brand'))) log.friction.push('the opening panel does not say (visibly) what the risk to Earth actually is');
     await step('tap "Close encounters"', () => p.tap('#open-enc'));
     await step('tap "Next 24 months"', () => p.tap('#enc-tab-next'));
     const txt = await p.textContent('#enc');

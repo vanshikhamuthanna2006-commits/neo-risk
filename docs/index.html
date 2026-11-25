@@ -35,6 +35,8 @@ button { font: inherit; color: inherit; }
 #brand h1 { margin: 2px 0 2px; font-size: 19px; font-weight: 600; letter-spacing: .02em; }
 #brand h1 span { color: var(--accent); }
 #brand p { margin: 0; color: var(--ink-2); font-size: 12.5px; }
+#brand p.risk-line { color: #9ff0c0; margin: 2px 0 6px; font-size: 12.5px; }
+#brand p.risk-line:empty { display: none; }
 #brand nav { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
 .chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px;
   border: 1px solid var(--line-2); background: transparent; color: var(--ink-2); font-size: 12px; cursor: pointer;
@@ -123,7 +125,8 @@ dl.kv dd { margin: 0; text-align: right; font-family: var(--mono); font-size: 12
 @media (max-width: 1180px) { #timeline { left: 18px; right: 18px; width: auto; min-width: 0; transform: none; } }
 @media (max-width: 1180px) and (min-width: 901px) {
   /* three top panels must fit side by side: brand | clock | side */
-  #brand { max-width: 250px; } #brand > p:not(.note) { display: none; }
+  #brand { max-width: 250px; } #brand > p:not(.note):not(.risk-line) { display: none; }
+  #brand .note { display: none; } .credit-side { display: block; }       /* credit moves to the layers panel */
   #side { width: 270px; }
   #clock { min-width: 0; padding: 8px 12px; } #clock .date { font-size: 15px; }
 }
@@ -159,7 +162,7 @@ dl.kv dd { margin: 0; text-align: right; font-family: var(--mono); font-size: 12
 #tip b { font-weight: 600; }
 
 /* ---------- flyby HUD */
-#fly { top: 18px; left: 18px; width: 360px; padding: 16px; display: none; }
+#fly { top: 18px; left: 18px; width: 360px; padding: 16px; display: none; max-height: calc(100vh - 170px); overflow-y: auto; }   /* stays above the flyby bar */
 #fly h2 { margin: 2px 0 4px; font-size: 22px; font-weight: 600; }
 #fly .story { color: var(--ink-2); font-size: 13px; margin: 0 0 10px; }
 .readout { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -208,13 +211,14 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 
 /* ---------- responsive */
 .mobile-only, .narrow-only, .phone-only { display: none !important; }
+.credit-side { display: none; }
 /* phones in landscape: a one-line brand panel */
 @media (max-width: 900px) and (max-height: 500px) {
   #brand { padding: 6px 10px !important; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   #brand .eyebrow { display: none; } #brand h1 { font-size: 16px; margin: 0; } #brand nav { margin-top: 0; }
 }
 /* short desktop screens: drop the description so the panels below keep their room */
-@media (max-height: 560px) and (min-width: 901px) { #brand > p:not(.note), #brand .note { display: none; } }
+@media (max-height: 560px) and (min-width: 901px) { #brand > p:not(.note):not(.risk-line), #brand .note { display: none; } }
 /* touch screens: every control at least 32 px tall (WCAG 2.5.8 asks 24) */
 @media (pointer: coarse) {
   .chip, .btn, .icon, .toggles label, .enc, #results button { min-height: 32px; }
@@ -242,7 +246,8 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
   #timebar { overflow: visible !important; gap: 5px; }
   #timebar .icon { width: 32px; }
   #brand { left: 12px; top: 12px; right: 12px; max-width: none; padding: 10px 12px; }
-  #brand p { display: none; }
+  #brand p:not(.risk-line) { display: none; }
+  body.card-open #brand .risk-line, body.side-open #brand .risk-line, body.enc-open #brand .risk-line { display: none; }
   #clock { top: auto; bottom: 64px; left: 12px; right: 12px; transform: none; min-width: 0; width: auto; padding: 6px 10px; }
   #clock .date { font-size: 15px; }
   #side { top: auto; bottom: 122px; right: 12px; left: 12px; width: auto; padding: 10px; display: none; max-height: 60vh; overflow: auto; }
@@ -282,10 +287,12 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 <div id="brand" class="hud glass">
   <div class="eyebrow">Near-Earth objects</div>
   <h1>NEO <span>Atlas</span></h1>
+  <p class="risk-line" id="risk-line"></p>
   <p>Every known near-Earth asteroid with a full orbit solution, moving in real time. Colour shows a machine-learning estimate of hazard that never sees an asteroid's MOID or brightness.</p>
   <nav>
     <a class="chip" href="explorer.html">Data explorer</a>
     <a class="chip" href="explorer.html#results">Model results</a>
+    <a class="chip" href="https://github.com/vanshikhamuthanna2006-commits/neo-risk" rel="noopener" target="_blank">Source code</a>
     <button class="chip" id="tour-start" style="border-color:rgba(255,181,71,.55);color:var(--accent-2)">Take the tour</button>
     <button class="chip" id="open-help" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)">?</button>
     <button class="chip narrow-only" id="open-enc">Close encounters</button>
@@ -350,6 +357,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
     </div>
   </div>
   <div class="count" id="count"></div>
+  <p class="note credit-side">Data: NASA/JPL Small-Body Database, Sentry, Horizons. An independent research project, not affiliated with NASA or JPL.</p>
 </div>
 
 <!-- object card -->
@@ -1076,11 +1084,11 @@ function renderHits() {
                               : `<div class="note" style="padding:8px">No match</div>`;
   res.style.display = "block";
 }
-res.onclick = e => { const b = e.target.closest("button"); if (b) { select(+b.dataset.k, true); res.style.display = "none"; q.blur(); } };
+res.onclick = e => { const b = e.target.closest("button"); if (b) { focusCardNext = true; select(+b.dataset.k, true); res.style.display = "none"; } };
 q.addEventListener("keydown", e => {
   if (e.key === "ArrowDown") { hi = Math.min(hits.length - 1, hi + 1); renderHits(); e.preventDefault(); }
   if (e.key === "ArrowUp") { hi = Math.max(0, hi - 1); renderHits(); e.preventDefault(); }
-  if (e.key === "Enter" && hits[hi] != null) { select(hits[hi], true); res.style.display = "none"; q.blur(); }
+  if (e.key === "Enter" && hits[hi] != null) { focusCardNext = true; select(hits[hi], true); res.style.display = "none"; }
   if (e.key === "Escape") { res.style.display = "none"; q.blur(); }
 });
 document.addEventListener("click", e => { if (!e.target.closest(".search")) res.style.display = "none"; });
@@ -1096,6 +1104,7 @@ function select(k, fly = false) {
   if (fly) { const [a] = objElements(k); flyTo(W(selNow), Math.min(40, Math.max(6, a * AU * 1.9))); }
   updateURL();
 }
+let focusCardNext = false;
 function renderCard() {
   const k = selected; if (k < 0 || !OBJ) return;
   const [a, e, i] = objElements(k);
@@ -1136,6 +1145,7 @@ function renderCard() {
   getExplain().then(X => { if (selected === k && $("#why")) $("#why").innerHTML = whyHTML(X, k, modeRisk ? "pha" : "sentry"); })
               .catch(() => { if ($("#why")) $("#why").innerHTML = '<div class="note">Explanation unavailable.</div>'; });
   $("#c-close").onclick = () => select(-1);
+  if (focusCardNext) { focusCardNext = false; const h = $("#card h2"); h.tabIndex = -1; h.focus(); }
   $("#c-follow").onclick = () => { follow = !follow; renderCard(); if (follow) flyTo(W(selNow), Math.max(1.2, camera.position.distanceTo(controls.target) * 0.5)); };
   if (fb) $("#c-fly").onclick = () => enterFlyby(FLY.flybys.indexOf(fb));
 }
@@ -1162,7 +1172,7 @@ function layoutHud() {
     if (isPhone()) {                                     // bottom sheet: between the brand panel and the clock
       const roof = $("#brand").getBoundingClientRect().bottom + 8;
       e.style.maxHeight = Math.max(96, innerHeight - 122 - roof) + "px"; e.style.overflowY = "auto"; continue; }
-    e.style.maxHeight = Math.max(160, floor - 8 - e.getBoundingClientRect().top) + "px"; e.style.overflowY = "auto";
+    e.style.maxHeight = Math.max(96, floor - 8 - e.getBoundingClientRect().top) + "px"; e.style.overflowY = "auto";
   }
   const enc = $("#enc");
   if (innerWidth <= 1180 && !isPhone()) enc.style.bottom = Math.round(innerHeight - floor + 8) + "px"; else enc.style.bottom = "";
@@ -1170,7 +1180,7 @@ function layoutHud() {
   if (!isPhone()) {
     const encBottom = innerWidth <= 1180 ? floor - 8 : innerHeight - 18;
     const roof = innerWidth <= 1180 ? $("#brand").getBoundingClientRect().bottom + 10 : $("#brand").getBoundingClientRect().bottom + 10;
-    enc.style.maxHeight = Math.max(140, encBottom - roof) + "px"; enc.style.overflowY = "auto";
+    enc.style.maxHeight = Math.max(96, encBottom - roof) + "px"; enc.style.overflowY = "auto";
     if (innerWidth > 1180) {                             // wide: lift the panel above the time bar / timeline if they meet
       const er = enc.getBoundingClientRect(), tr = tb, lr = tlOn ? tl.getBoundingClientRect() : tb;
       if (er.right > Math.min(tr.left, lr.left) - 6) {
@@ -1629,7 +1639,8 @@ function renderCloseApproaches() {
     return `<button class="enc ca" data-i="${i}" ${c.row < 0 ? 'disabled title="Discovered after this dataset was built"' : ""}>
       <b>${esc(c.name.replace(/^\((.*)\)$/, "$1"))}</b><span class="d">${ld.toFixed(2)} LD</span>
       <span class="s">${esc(c.cd)} UTC · ${c.v_rel.toFixed(1)} km/s${size ? " · " + size : ""}${c.row < 0 ? " · not in atlas" : ""}</span></button>`; }).join("");
-  $("#ca-note").textContent = `${CA.items.length} approaches within 0.05 au (19.5 lunar distances) from ${CA.generated}, JPL close-approach database. Click one to jump to it.`;
+  const minLD = Math.min(...CA.items.map(c => c.dist_au)) * AU_KM / LD_KM;
+  $("#ca-note").textContent = `These are near misses, not impacts: the closest of the ${CA.items.length} passes ${minLD.toFixed(2)} lunar distances (LD; 1 LD = 384,400 km) from Earth. All approaches within 0.05 au (19.5 LD), ${CA.generated} onwards, from JPL's close-approach database. Click one to jump to it.`;
   $("#ca-list").onclick = e => { const b = e.target.closest(".ca"); if (!b || b.disabled) return;
     const c = CA.items[+b.dataset.i]; simJD = c.jd; playing = false; syncPlay(); select(c.row, true); };
 }
@@ -1694,6 +1705,9 @@ async function load() {
   $("#filters").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", +x.dataset.f === filter));
   $("#modes").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", +x.dataset.m === modeRisk));
   applyFilter(); renderEncounters(); renderTimelineMarks();
+  fetch("data/summary.json").then(r => r.json()).then(S => { const c = S.sentry_context; if (!c) return;
+    $("#risk-line").textContent = `No known asteroid poses a significant impact threat: all ${c.n_torino_rated.toLocaleString()} rated objects on JPL's Sentry list are at ${c.torino_max} ("no hazard") on the Torino scale (data of ${c.snapshot_utc.slice(0, 10)}).`;
+    layoutHud(); }).catch(() => {});
   fetch("data/closeapp.json").then(r => r.ok ? r.json() : null).then(d => { CA = d; renderCloseApproaches(); }).catch(() => renderCloseApproaches());
   $("#intro-sub").textContent = `${NOBJ.toLocaleString()} near-Earth asteroids · ${jdToStr(jdNow(), false)}`;
   setTimeout(() => $("#intro").classList.add("out"), reduceMotion ? 300 : 2200);

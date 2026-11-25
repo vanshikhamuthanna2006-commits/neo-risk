@@ -202,6 +202,14 @@ for tname in ("pha", "sentry"):
 res["tables"] = tabs
 res["stage3"] = json.load(open(root / "results" / "stage3_report.json"))
 res["n_objects"] = len(idx); res["n_folds"] = K
+# plain-language risk context from the same JPL Sentry snapshot the labels came from
+prov = json.load(open(proc / "provenance.json"))
+sen = audit[audit["in_sentry"] == 1]
+pmax = sen["ps_cum"].idxmax()
+res["sentry_context"] = {"snapshot_utc": prov.get("snapshot_utc"), "n_on_list": int(len(sen)),
+                         "n_torino_rated": int(sen["ts_max"].notna().sum()), "torino_max": float(sen["ts_max"].max()),
+                         "palermo_cum_max": float(sen["ps_cum"].max()), "palermo_cum_max_des": str(pmax),
+                         "palermo_cum_max_name": str(meta.loc[pmax, "full_name"]).strip()}
 def clean(o):
     """JSON for browsers: NaN/inf -> null (json.dump would emit bare NaN, which JSON.parse rejects)."""
     if isinstance(o, dict):
