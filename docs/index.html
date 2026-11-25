@@ -169,6 +169,20 @@ dl.kv dd { margin: 0; text-align: right; font-family: var(--mono); font-size: 12
 body.flyby #brand, body.flyby #side, body.flyby #card, body.flyby #timebar, body.flyby #enc, body.flyby #clock, body.flyby #timeline { display: none !important; }
 body.flyby #fly, body.flyby #flybar { display: block; }
 
+/* ---------- tour */
+#tour { top: 104px; left: 50%; transform: translateX(-50%); width: min(380px, calc(100vw - 32px)); padding: 16px 18px; z-index: 35;
+  border-color: rgba(255,181,71,.35); box-shadow: 0 10px 50px rgba(0,0,0,.5), 0 0 0 1px rgba(255,181,71,.12); }
+#tour[hidden] { display: none; }
+#tour h3 { margin: 4px 0 6px; font-size: 17px; font-weight: 600; }
+#tour p { margin: 0; color: var(--ink-2); font-size: 13px; line-height: 1.55; }
+body.flyby #tour { top: auto; bottom: 150px; }
+@media (max-width: 760px) {
+  #tour { top: auto; bottom: 120px; }
+  /* in a flyby the tour card takes the readout panel's place at the top, leaving Earth visible */
+  body.flyby #tour { top: 12px; bottom: auto; }
+  body.flyby.touring #fly { display: none; }
+}
+
 /* ---------- keyboard help + focus */
 #help { top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(440px, calc(100vw - 32px)); padding: 18px 20px; z-index: 40; }
 #help[hidden] { display: none; }
@@ -243,6 +257,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
   <nav>
     <a class="chip" href="explorer.html">Data explorer</a>
     <a class="chip" href="explorer.html#results">Model results</a>
+    <button class="chip" id="tour-start" style="border-color:rgba(255,181,71,.55);color:var(--accent-2)">Take the tour</button>
     <button class="chip" id="open-help" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)">?</button>
     <button class="chip narrow-only" id="open-enc">Close encounters</button>
     <button class="chip mobile-only" id="open-side">Search &amp; layers</button>
@@ -337,6 +352,18 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 </div>
 
 <div id="tip" class="glass"></div>
+
+<!-- guided tour -->
+<div id="tour" class="hud glass" role="dialog" aria-label="Guided tour" hidden>
+  <div class="eyebrow" id="tour-count"></div>
+  <h3 id="tour-title"></h3>
+  <p id="tour-text"></p>
+  <div class="actions">
+    <button class="btn" id="tour-back">Back</button>
+    <button class="btn primary" id="tour-next">Next</button>
+    <button class="btn" id="tour-exit" style="margin-left:auto">Exit tour</button>
+  </div>
+</div>
 
 <!-- keyboard help -->
 <div id="help" class="hud glass" role="dialog" aria-modal="false" aria-label="Keyboard shortcuts" hidden>
@@ -1093,7 +1120,7 @@ addEventListener("keydown", e => {
   if (e.target.tagName === "BUTTON" && (e.code === "Space" || e.key === "Enter")) return;   // let focused buttons activate
   const k = e.key.toLowerCase();
   if (e.key === "?") { toggleHelp(); e.preventDefault(); return; }
-  if (e.key === "Escape") { if (!helpEl.hidden) toggleHelp(false); else if (mode === "flyby") exitFlyby(); else select(-1); return; }
+  if (e.key === "Escape") { if (!helpEl.hidden) toggleHelp(false); else if (tour.i >= 0) endTour(); else if (mode === "flyby") exitFlyby(); else select(-1); return; }
   if (mode === "flyby") { if (e.code === "Space") { fPlaying = !fPlaying; syncFPlay(); e.preventDefault(); } return; }
   if (e.code === "Space") { playing = !playing; syncPlay(); e.preventDefault(); }
   else if (e.key === "/") { q.focus(); e.preventDefault(); }
@@ -1109,6 +1136,40 @@ addEventListener("keydown", e => {
   else if (k === "l") { $("#t-labels").click(); }
   else if (k === "c") { $("#share").click(); }
 });
+
+// ---- guided tour: each step sets up the scene it describes (so Back/Next are idempotent)
+const TOUR = [
+  { t: "43,160 near-Earth asteroids, live", x: "Every dot is a known near-Earth asteroid, moving on its real orbit around the Sun. Time is running at one week per second; drag to orbit, scroll to zoom.",
+    go() { if (mode === "flyby") exitFlyby(); select(-1); setTop(false); setFilter(0); setMode(0); setSpeed(604800); playing = true; dir = 1; syncPlay();
+           flyTo(new THREE.Vector3(0, 0, 0), 34); } },
+  { t: "Colour is the model's risk score", x: "Brighter, larger, warmer dots have a higher chance of being on JPL's Sentry impact-monitoring list, according to a model that never sees an asteroid's MOID or brightness. The highlighted ellipses are the orbits of the 50 riskiest.",
+    go() { if (mode === "flyby") exitFlyby(); select(-1); setMode(0); setTop(true); setSpeed(604800); playing = true; syncPlay(); flyTo(new THREE.Vector3(0, 0, 0), 30); } },
+  { t: "Apophis, and why it scores as it does", x: "The card shows Apophis's two risk scores and the five measurements that pushed its score up or down most. Its strongest driver: in the uncertainty clones, every copy of its orbit passes within 0.01 au of Earth.",
+    go() { if (mode === "flyby") exitFlyby(); setTop(false); const k = OBJ.pdes.indexOf("99942"); if (k >= 0) select(k, true); setSpeed(86400); playing = true; syncPlay(); } },
+  { t: "13 April 2029: Apophis passes inside the satellite belt", x: "This replays JPL's own trajectory. Apophis passes 38,011 km from Earth's centre, inside the ring of geostationary satellites (cyan). Earth, the Moon and distances are to scale; the asteroid is drawn enlarged.",
+    go() { const j = FLY.flybys.findIndex(f => f.des === "99942"); if (j >= 0) { if (mode !== "flyby" || F?.des !== "99942") enterFlyby(j); fJD = F.jd_ca - 2 / 24; setFSpeed(60); fPlaying = true; syncFPlay(); } } },
+  { t: "Go deeper", x: "Search any asteroid, scrub the timeline to other flybys, or copy a link to this exact view. The data explorer has every score, the model's calibration, a CSV download and an honest audit of the research gaps.",
+    go() { if (mode === "flyby") exitFlyby(); const k = OBJ.pdes.indexOf("99942"); if (k >= 0 && selected !== k) select(k, true); } },
+];
+const tour = { i: -1 };
+function setTop(on) { if ($("#t-top").checked !== on) { $("#t-top").checked = on; buildTop(); } }
+function setFilter(f) { $(`#filters [data-f="${f}"]`).click(); }
+function setMode(m) { if (modeRisk !== m) $(`#modes [data-m="${m}"]`).click(); }
+function showTour(i) {
+  tour.i = i; const s = TOUR[i];
+  $("#tour").hidden = false; document.body.classList.add("touring");
+  $("#tour-count").textContent = `Tour · ${i + 1} of ${TOUR.length}`;
+  $("#tour-title").textContent = s.t; $("#tour-text").textContent = s.x;
+  $("#tour-back").disabled = i === 0;
+  $("#tour-next").textContent = i === TOUR.length - 1 ? "Finish" : "Next";
+  intro.t = 1;                                          // a tour step overrides the opening sweep
+  s.go();
+}
+const endTour = () => { tour.i = -1; $("#tour").hidden = true; document.body.classList.remove("touring"); };
+$("#tour-start").onclick = () => { document.body.classList.remove("side-open", "enc-open"); showTour(0); };
+$("#tour-next").onclick = () => tour.i >= TOUR.length - 1 ? endTour() : showTour(tour.i + 1);
+$("#tour-back").onclick = () => tour.i > 0 && showTour(tour.i - 1);
+$("#tour-exit").onclick = endTour;
 
 // ---- adaptive quality: step down resolution, then bloom, when the frame rate stays low
 const BASE_PR = Math.min(devicePixelRatio, 2);
@@ -1554,6 +1615,7 @@ window.__neo = {
   get simJD() { return simJD; }, get mode() { return mode; }, get selected() { return selected; }, get playing() { return playing; },
   get ready() { return !!OBJ && intro.t >= 1; },                               // data loaded and intro finished
   get view() { return { f: filter, m: modeRisk, cam: [...camera.position.toArray(), ...controls.target.toArray()] }; }, shareURL,
+  get tour() { return { steps: TOUR.length, i: tour.i }; },
   get quality() { return { level: quality.level, pixelRatio: renderer.getPixelRatio(), bloom: bloom.enabled }; }, adapt,
   get gridVisible() { return grid.visible; }, get topOrbits() { return { count: TOP.count, rows: TOP.rows }; }, topRows,
   select: k => select(k, true), enterFlyby: j => enterFlyby(j), exitFlyby,

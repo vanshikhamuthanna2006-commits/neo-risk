@@ -209,6 +209,30 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
   ok('a11y page: no errors', q6.errs.length === 0, q6.errs.slice(0, 2).join(' | '));
   await q6.close();
 
+  // W7: guided tour — every step sets up what it describes
+  const tr = await page(b, { width: W, height: H });
+  await tr.goto('http://localhost:8765/index.html'); await tr.waitForFunction(() => window.__neo && __neo.ready, null, { timeout: 60000 });
+  await tr.click('#tour-start'); await tr.waitForTimeout(300);
+  const nSteps = await tr.evaluate(() => __neo.tour.steps);
+  ok('tour has 5 steps', nSteps === 5, `${nSteps}`);
+  const seen = [];
+  for (let st = 0; st < nSteps; st++) {
+    await tr.waitForTimeout(st === 3 ? 1500 : 900);
+    const s = await tr.evaluate(() => ({ i: __neo.tour.i, title: document.querySelector('#tour h3').textContent, mode: __neo.mode,
+      sel: __neo.selected, apo: __neo.rowOf('99942'), f: __neo.view.f, top: __neo.topOrbits.count }));
+    seen.push(s);
+    if (st < nSteps - 1) await tr.click('#tour-next'); else await tr.click('#tour-next');   // last click = Finish
+  }
+  ok('tour step 1: overview', seen[0].i === 0 && seen[0].mode === 'solar');
+  ok('tour step 2: risk colour shows the top-50 orbits', seen[1].top === 50);
+  ok('tour step 3: Apophis selected', seen[2].sel === seen[2].apo);
+  ok('tour step 4: Apophis flyby open', seen[3].mode === 'flyby');
+  ok('tour step 5: back in the solar system', seen[4].mode === 'solar');
+  await tr.waitForTimeout(300);
+  ok('tour closes on Finish', !(await tr.isVisible('#tour')));
+  ok('tour: no page errors', tr.errs.length === 0, tr.errs.slice(0, 2).join(' | '));
+  await tr.close();
+
   // deep links + phone
   const m = await page(b, { width: 390, height: 844 });
   await m.goto('http://localhost:8765/index.html?flyby=2024%20YR4');
