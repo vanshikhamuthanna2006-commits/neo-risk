@@ -43,10 +43,20 @@ CIs: paired stratified bootstrap of each seed's test set, averaged replicate-wis
 
 ## Full reproduction order
 `build_dataset.py` -> `run_dynamics.py 50` -> `fetch_covariances.py` -> `run_uncertainty.py` -> `run_evaluation.py`
- -> `export_web.py` (interactive site data)
+ -> `export_web.py` -> `export_orbits.py` (interactive site data)
 
 ## Interactive site (`docs/`, GitHub Pages)
-A static site with no server: `docs/index.html` plus `docs/data/objects.json` and `docs/data/summary.json`.
+A static site with no server, in two pages.
+
+**`docs/index.html`: NEO Atlas (3-D, WebGL via three.js 0.160.0).**
+- **Live motion:** all 43,160 asteroids move in real time, or at up to a month per second. Their two-body Kepler motion is solved on the GPU from JPL osculating elements.
+- **Planets:** positions come from Standish's approximate elements.
+- **Colour:** each asteroid is coloured by the full model's out-of-fold risk score.
+- **Interaction:** click or search for any asteroid to see its orbit and risk card.
+- **Close encounters:** six real flybys from 2027 to 2075 (Apophis, 2001 WN5, 1999 AN10, 2024 YR4, 2012 UE34, 2005 YU55). Each replays JPL Horizons geocentric trajectories with a to-scale Earth, the Moon and the geostationary belt.
+- **Data:** `docs/data/orbits.bin` and `docs/data/flybys.json`, from `python scripts/export_orbits.py`. This needs `ssd.jpl.nasa.gov` (Horizons) and `ssd-api.jpl.nasa.gov`.
+
+**`docs/explorer.html`: data explorer.** It reads `docs/data/objects.json` and `docs/data/summary.json`.
 
 - **Explore objects:** search any of the 43,160 NEOs and see its out-of-fold risk from the leak-free baseline and the full model, its conformal set, its dynamics and clone features, and the audit-only MOID, H, PHA and Sentry values.
 - **Decision trade-off:** a cost-ratio slider (Bayes threshold) and α sliders that recompute the conformal sets exactly from exported conformal p-values.
