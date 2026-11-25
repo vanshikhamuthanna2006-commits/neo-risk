@@ -20,4 +20,4 @@
 - [x] U1 **Layout on every device.** Phones get a compact time bar (no off-screen controls; the date and Copy link move to the menu sheet). The card fits under the brand panel. Short screens get a compact brand panel. Tablets up to 900 px wide use the phone layout. The encounters panel clears the time bar on 1280–1366 px laptops. Touch targets are at least 24 px.
 - [x] U2 **GPU picking.** Hover and click use an ID render of a 15×15 px area instead of 43k CPU Kepler solves. Target: < 30 ms at 4× CPU throttle.
 - [x] U3 **Content found by the personas.** A plain-language risk statement (the Torino and Palermo maxima, read live from the data); "near misses, not impacts", with LD spelled out; the data snapshot date on both pages and in the CSV; a source-code link; keyboard focus moves to the card after a search.
-- [ ] U4 **Faster first card on phones.** Split explain.json into 1,000-object chunks.
+- [x] U4 **Faster first card on phones.** Split explain.json into 1,000-object chunks.

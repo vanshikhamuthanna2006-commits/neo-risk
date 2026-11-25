@@ -186,7 +186,22 @@ for tname, ex in explain.items():
     xout[tname] = {"names": ex["names"], "idx": ex["idx"].ravel().tolist(), "val": np.round(ex["val"], 4).ravel().tolist(),
                    "fx": sig4(ex["fx"]), "base": np.round(ex["base"], 4).tolist(), "logit": np.round(ex["logit"], 6).tolist(),
                    "fold": ex["fold"].tolist(), "platt": [[float(a), float(b)] for a, b in ex["platt"]]}
-json.dump(xout, open(out_dir / "explain.json", "w"), separators=(",", ":"), allow_nan=False)
+# split into 1,000-object chunks so a card loads ~200 KB instead of the whole file
+CH = 1000
+xd = out_dir / "explain"; xd.mkdir(exist_ok=True)
+for old in xd.glob("*.json"):
+    old.unlink()
+index = {"note": xout["note"], "labels": xout["labels"], "chunk": CH, "n": len(idx), "modes": {}}
+for tname in explain:
+    xm = xout[tname]
+    index["modes"][tname] = {"names": xm["names"], "platt": xm["platt"]}
+    for c0 in range(0, len(idx), CH):
+        c1 = min(len(idx), c0 + CH)
+        part = {"start": c0, "idx": xm["idx"][c0 * 5:c1 * 5], "val": xm["val"][c0 * 5:c1 * 5], "fx": xm["fx"][c0 * 5:c1 * 5],
+                "base": xm["base"][c0:c1], "logit": xm["logit"][c0:c1], "fold": xm["fold"][c0:c1]}
+        json.dump(part, open(xd / f"{tname}_{c0 // CH}.json", "w"), separators=(",", ":"), allow_nan=False)
+json.dump(index, open(xd / "index.json", "w"), separators=(",", ":"), allow_nan=False)
+(out_dir / "explain.json").unlink(missing_ok=True)
 
 # ---------------------------------------------------------------- official test-split tables
 tabs = {}

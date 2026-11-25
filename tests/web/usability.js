@@ -105,6 +105,13 @@ const AUDIT = (touch) => {
       R.perf[label] = { jsMsPerFrame: +js.toFixed(2), hoverPickMs: +pickMs.toFixed(1), searchMs, filterMs, cardMs };
     };
     await measure('normal');
+    // first card on a FRESH page with a 4x slower CPU (nothing cached: explanation data must load)
+    {
+      const f = await open(b, { viewport: { width: 390, height: 844 } }, 'index.html');
+      const c2 = await f.ctx.newCDPSession(f.p); await c2.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+      const t = Date.now(); await f.p.evaluate(() => __neo.select(__neo.rowOf('99942'))); await f.p.waitForSelector('#card .drv', { timeout: 60000 });
+      R.perf.firstCardMs_cpu4x = Date.now() - t; await f.ctx.close();
+    }
     await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
     await measure('cpu_4x_slower');
     await ctx.close();
@@ -190,6 +197,7 @@ const AUDIT = (touch) => {
     const slow = R.perf.cpu_4x_slower || {};
     if (!(slow.hoverPickMs < 30)) bad.push(`hover pick ${slow.hoverPickMs} ms at 4x CPU (limit 30)`);
     if (!(slow.jsMsPerFrame < 8)) bad.push(`main thread ${slow.jsMsPerFrame} ms/frame at 4x CPU (limit 8)`);
+    if (!(R.perf.firstCardMs_cpu4x < 1500)) bad.push(`first card with explanation ${R.perf.firstCardMs_cpu4x} ms on a fresh page at 4x CPU (limit 1500)`);
     for (const p of R.personas) { if (!p.success) bad.push(`persona ${p.who}: task failed`); for (const f of p.friction) bad.push(`persona ${p.who}: ${f}`); if (p.errors.length) bad.push(`persona ${p.who}: errors`); }
     console.log(bad.length ? 'UX FAIL\n  ' + bad.join('\n  ') : 'UX PASS');
     process.exit(bad.length ? 1 : 0);

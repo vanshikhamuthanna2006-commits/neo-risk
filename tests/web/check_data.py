@@ -28,7 +28,12 @@ for m in ("pha", "sentry"):
     oof, test = s[m]["metrics"]["full"]["pr_auc"], t["static_dyn_unc"]["pr_auc"]
     chk(abs(oof - test) < 0.03, f"{m}: OOF PR-AUC {oof} vs test {test} differ > 0.03")
 # W1: explanations (the exact-sum property is asserted at export time against the fold models)
-x = json.load(open(D / "explain.json"))
+# reassemble the chunked explanations (docs/data/explain/) into whole arrays
+xi = json.load(open(D / "explain" / "index.json")); x = {"labels": xi["labels"]}
+for m, meta in xi["modes"].items():
+    parts = [json.load(open(D / "explain" / f"{m}_{c}.json")) for c in range((xi["n"] + xi["chunk"] - 1) // xi["chunk"])]
+    chk([q["start"] for q in parts] == list(range(0, xi["n"], xi["chunk"])), f"explain {m}: chunk starts")
+    x[m] = {"names": meta["names"], "platt": meta["platt"], **{k: sum((q[k] for q in parts), []) for k in ("idx", "val", "fx", "base", "logit", "fold")}}
 for m in ("pha", "sentry"):
     xm = x[m]; nf = len(xm["names"])
     idx = np.array(xm["idx"]).reshape(-1, 5); val = np.array(xm["val"]).reshape(-1, 5)

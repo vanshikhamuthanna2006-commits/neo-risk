@@ -423,13 +423,21 @@ function renderDetail() {
 }
 
 // "Why this score": TreeSHAP contributions (docs/data/explain.json, loaded on first use)
-let XP = null;
-const getExplain = () => XP || (XP = fetch("data/explain.json").then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }));
+// "why this score" data, chunked: the index once, then the 1,000-object chunk holding row k
+let XI = null; const XC = new Map();
+const getXIndex = () => XI || (XI = fetch("data/explain/index.json").then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }));
+function getExplainRow(k, m) {
+  return getXIndex().then(I => {
+    const c = Math.floor(k / I.chunk), key = m + c;
+    if (!XC.has(key)) XC.set(key, fetch(`data/explain/${m}_${c}.json`).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }));
+    return XC.get(key).then(part => ({ labels: I.labels, xm: { names: I.modes[m].names, ...part }, j: k - part.start }));
+  });
+}
 function renderWhy(i) {
   const box = $("#why-x"); if (!box) return;
-  getExplain().then(X => {
+  getExplainRow(i, state.mode).then(R => {
     if (state.sel !== i || !$("#why-x")) return;
-    const xm = X[state.mode], o = i * 5, base = xm.base[i], logit = xm.logit[i];
+    const X = { labels: R.labels }, xm = R.xm, j = R.j, o = j * 5, base = xm.base[j], logit = xm.logit[j];
     const rows = [0, 1, 2, 3, 4].map(j => ({ lab: X.labels[xm.names[xm.idx[o + j]]] || xm.names[xm.idx[o + j]], v: xm.val[o + j], fx: xm.fx[o + j] }));
     const rest = logit - base - rows.reduce((s, r) => s + r.v, 0);
     const mx = Math.max(...rows.map(r => Math.abs(r.v)), Math.abs(rest), 1e-6);

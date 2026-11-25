@@ -1142,7 +1142,8 @@ function renderCard() {
       Risk scores are out-of-fold model outputs, not impact probabilities.</div>`;
   $("#card").classList.add("show");
   placeCard();
-  getExplain().then(X => { if (selected === k && $("#why")) $("#why").innerHTML = whyHTML(X, k, modeRisk ? "pha" : "sentry"); })
+  const mk = modeRisk ? "pha" : "sentry";
+  getExplainRow(k, mk).then(R => { if (selected === k && $("#why")) $("#why").innerHTML = whyHTML(R, mk); })
               .catch(() => { if ($("#why")) $("#why").innerHTML = '<div class="note">Explanation unavailable.</div>'; });
   $("#c-close").onclick = () => select(-1);
   if (focusCardNext) { focusCardNext = false; const h = $("#card h2"); h.tabIndex = -1; h.focus(); }
@@ -1193,11 +1194,19 @@ addEventListener("resize", () => { layoutHud(); if (selected >= 0) placeCard(); 
 layoutHud();
 
 // "Why this score": TreeSHAP contributions from the fold model that scored the object
-let XP = null;
-const getExplain = () => XP || (XP = fetch("data/explain.json").then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }));
+// "why this score" data, chunked: the index once, then the 1,000-object chunk holding row k
+let XI = null; const XC = new Map();
+const getXIndex = () => XI || (XI = fetch("data/explain/index.json").then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }));
+function getExplainRow(k, m) {
+  return getXIndex().then(I => {
+    const c = Math.floor(k / I.chunk), key = m + c;
+    if (!XC.has(key)) XC.set(key, fetch(`data/explain/${m}_${c}.json`).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }));
+    return XC.get(key).then(part => ({ labels: I.labels, xm: { names: I.modes[m].names, ...part }, j: k - part.start }));
+  });
+}
 function fmtFx(v) { return v == null ? "missing" : Math.abs(v) >= 1000 || (Math.abs(v) < 0.01 && v !== 0) ? v.toExponential(2) : (+v.toPrecision(3)).toString(); }
-function whyHTML(X, k, m) {
-  const xm = X[m], o = k * 5, base = xm.base[k], logit = xm.logit[k];
+function whyHTML(R, m) {
+  const X = { labels: R.labels }, xm = R.xm, k = R.j, o = k * 5, base = xm.base[k], logit = xm.logit[k];
   const rows = [0, 1, 2, 3, 4].map(j => ({ name: xm.names[xm.idx[o + j]], v: xm.val[o + j], fx: xm.fx[o + j] }));
   const rest = logit - base - rows.reduce((s, r) => s + r.v, 0);
   const mx = Math.max(...rows.map(r => Math.abs(r.v)), Math.abs(rest), 1e-6);

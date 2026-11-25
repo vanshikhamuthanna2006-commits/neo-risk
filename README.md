@@ -56,11 +56,11 @@ A static site with no server, in two pages.
 - **Close encounters:** six real flybys from 2027 to 2075 (Apophis, 2001 WN5, 1999 AN10, 2024 YR4, 2012 UE34, 2005 YU55). Each replays JPL Horizons geocentric trajectories with a to-scale Earth, the Moon and the geostationary belt.
 - **Data:** `docs/data/orbits.bin` and `docs/data/flybys.json`, from `python scripts/export_orbits.py`. This needs `ssd.jpl.nasa.gov` (Horizons) and `ssd-api.jpl.nasa.gov`.
 - **Also in the atlas:**
-  - "why this score" drivers (`explain.json`);
+  - "why this score" drivers (`explain/`, in 1,000-object chunks loaded on demand);
   - uncertainty clouds of covariance clones for 605 high-risk and featured objects (`clouds.bin`, from `export_clouds.py`);
   - JPL close approaches for the next 24 months (`closeapp.json`, from `export_closeapp.py`; re-run it to refresh);
   - discovery-history mode, an Earth-centred view, a 1950–2100 timeline, shareable links, keyboard shortcuts (`?`) and a guided tour.
-- **Verification:** run `loop/verify.sh`. It runs pytest, the data checks (`tests/web/check_data.py`) and the browser checks (`tests/web/e2e.js`), which include accuracy against JPL Horizons.
+- **Verification:** run `loop/verify.sh`. It runs pytest, the data checks (`tests/web/check_data.py`), the browser checks (`tests/web/e2e.js`, which include accuracy against JPL Horizons) and the simulated usability check (`tests/web/usability.js --assert`: 13 device profiles, slow-CPU limits and five scripted personas).
 
 **`docs/explorer.html`: data explorer.** It reads `docs/data/objects.json` and `docs/data/summary.json`.
 

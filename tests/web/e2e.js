@@ -15,6 +15,15 @@ async function page(b, vp) {
   await p.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
   return p;
 }
+// reassemble docs/data/explain/ chunks into whole arrays (same shape as the old explain.json)
+function loadExplain() {
+  const D = '/home/user/neo-risk/docs/data/explain/', I = JSON.parse(fs.readFileSync(D + 'index.json', 'utf8')), X = { labels: I.labels };
+  for (const [m, meta] of Object.entries(I.modes)) {
+    const parts = []; for (let c = 0; c * I.chunk < I.n; c++) parts.push(JSON.parse(fs.readFileSync(`${D}${m}_${c}.json`, 'utf8')));
+    X[m] = { names: meta.names, platt: meta.platt }; for (const k of ['idx', 'val', 'fx', 'base', 'logit', 'fold']) X[m][k] = parts.flatMap(q => q[k]);
+  }
+  return X;
+}
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 
 (async () => {
@@ -63,7 +72,7 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
     ok('cloud: card states the spread', /uncertainty cloud/i.test(await p.textContent('#card')));
   }
   // W1: "why this score" drivers in the atlas card must equal explain.json for this object
-  const X = JSON.parse(fs.readFileSync('/home/user/neo-risk/docs/data/explain.json', 'utf8'));
+  const X = loadExplain();
   await p.waitForSelector('#card .drv', { timeout: 30000 });
   const drv = await p.$$eval('#card .drv', els => els.map(x => +x.dataset.val));
   const want = X.sentry.val.slice(apo * 5, apo * 5 + 5);
@@ -315,7 +324,7 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
   await e.waitForSelector('#loading', { state: 'detached', timeout: 30000 });
   ok('explorer ?obj= selects Bennu', /Bennu/.test(await e.textContent('#detail')));
   {
-    const X = JSON.parse(fs.readFileSync('/home/user/neo-risk/docs/data/explain.json', 'utf8'));
+    const X = loadExplain();
     const O = JSON.parse(fs.readFileSync('/home/user/neo-risk/docs/data/objects.json', 'utf8'));
     const k = O.pdes.indexOf('101955');
     await e.waitForSelector('#detail .drv', { timeout: 30000 });
