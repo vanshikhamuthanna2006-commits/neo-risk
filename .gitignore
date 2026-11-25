@@ -7,3 +7,6 @@ __pycache__/
 *.pyc
 .pytest_cache/
 /results/*.parquet
+/tests/web/node_modules/
+/tests/web/package-lock.json
+/loop/shots/
