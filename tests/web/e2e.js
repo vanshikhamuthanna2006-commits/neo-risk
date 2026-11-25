@@ -76,6 +76,13 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
   // click at screen centre (camera has flown to Apophis) picks something nearby
   await p.mouse.click(W / 2, H / 2); await p.waitForTimeout(300);
   ok('click-to-pick selects an object', await p.evaluate(() => __neo.selected) >= 0);
+  // U2: the GPU pick under Apophis's CPU-projected position returns Apophis or an object drawn within 7 px of it
+  {
+    const g = await p.evaluate(() => { __neo.select(__neo.rowOf('99942')); return null; }); await p.waitForTimeout(2500);
+    const r = await p.evaluate(() => { const k = __neo.rowOf('99942'), [x, y] = __neo.screenOf(k), hit = __neo.pick(x, y);
+      const [hx, hy] = hit >= 0 ? __neo.screenOf(hit) : [1e9, 1e9]; return { k, hit, d: Math.hypot(hx - x, hy - y) }; });
+    ok('GPU pick agrees with CPU projection', r.hit === r.k || r.d <= 7, JSON.stringify(r));
+  }
   await p.keyboard.press('Escape'); await p.waitForTimeout(200);
   ok('Escape clears selection', await p.evaluate(() => __neo.selected) === -1);
 

@@ -777,6 +777,41 @@ const astMat = new THREE.ShaderMaterial({
 });
 let EL = null, NOBJ = 0, OBJ = null, FLY = null;
 let astPoints = null, astGeo = null;
+
+// ---- GPU picking: render the asteroid IDs (same shader, uniforms and attributes) into a small
+//      patch around the cursor and read it back; cost no longer scales with 43k CPU Kepler solves
+const PICK_S = 15;
+const pickVS = astVS.replace("varying vec3 vC; varying float vA;", "varying vec3 vC; varying float vA; varying float vId;")
+                    .replace("float id = float(gl_VertexID);", "float id = float(gl_VertexID); vId = id;")
+                    .replace("gl_PointSize = sz * uPix * near;", "gl_PointSize = max(sz * uPix * near, 10.0);");
+const pickMat = new THREE.ShaderMaterial({
+  uniforms: { ...astMat.uniforms, uPix: { value: 1 } },          // shared uniform objects: same time, filters, mode
+  vertexShader: pickVS,
+  fragmentShader: `varying float vId; void main(){ if (length(gl_PointCoord - 0.5) > 0.5) discard;
+    float i = vId + 1.0; gl_FragColor = vec4(mod(i, 256.0) / 255.0, mod(floor(i / 256.0), 256.0) / 255.0, floor(i / 65536.0) / 255.0, 1.0); }`,
+  depthTest: false, depthWrite: false, blending: THREE.NoBlending, toneMapped: false
+});
+const pickScene = new THREE.Scene(), pickWorld = new THREE.Group(); pickScene.add(pickWorld);
+const pickRT = new THREE.WebGLRenderTarget(PICK_S, PICK_S, { depthBuffer: false });
+const pickBuf = new Uint8Array(PICK_S * PICK_S * 4);
+let pickPoints = null;
+function pickGPU(cx, cy, radius = 7) {
+  if (!astGeo) return -1;
+  if (!pickPoints) { pickPoints = new THREE.Points(astGeo, pickMat); pickPoints.frustumCulled = false; pickWorld.add(pickPoints); }
+  pickWorld.position.copy(world.position);
+  const prevColor = renderer.getClearColor(new THREE.Color()), prevAlpha = renderer.getClearAlpha();
+  camera.setViewOffset(innerWidth, innerHeight, cx - PICK_S / 2, cy - PICK_S / 2, PICK_S, PICK_S);
+  renderer.setRenderTarget(pickRT); renderer.setClearColor(0x000000, 0); renderer.clear(); renderer.render(pickScene, camera);
+  renderer.setRenderTarget(null); camera.clearViewOffset(); renderer.setClearColor(prevColor, prevAlpha);
+  renderer.readRenderTargetPixels(pickRT, 0, 0, PICK_S, PICK_S, pickBuf);
+  let best = -1, bd = radius * radius + 1;
+  for (let y = 0; y < PICK_S; y++) for (let x = 0; x < PICK_S; x++) {
+    const o = (y * PICK_S + x) * 4; if (pickBuf[o + 3] < 255) continue;
+    const d = (x + 0.5 - PICK_S / 2) ** 2 + (y + 0.5 - PICK_S / 2) ** 2;
+    if (d < bd) { bd = d; best = pickBuf[o] + pickBuf[o + 1] * 256 + pickBuf[o + 2] * 65536 - 1; }
+  }
+  return best < NOBJ ? best : -1;
+}
 const OVR = [];
 function applyOverrides(jd) {
   if (!astGeo) return;
@@ -1206,13 +1241,13 @@ let down = null;
 canvas.addEventListener("pointerdown", e => { down = [e.clientX, e.clientY]; });
 canvas.addEventListener("pointerup", e => {
   if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5 || mode !== "solar") return;
-  const k = pick(e.clientX, e.clientY, e.pointerType === "touch" ? 22 : 12);
+  const k = pickGPU(e.clientX, e.clientY, e.pointerType === "touch" ? 7.5 : 6);
   if (k >= 0) select(k);
 });
 canvas.addEventListener("pointermove", e => {
   if (mode !== "solar" || e.pointerType === "touch" || e.buttons) { tip.style.opacity = 0; return; }
   const now = performance.now(); if (now - lastPick < 70) return; lastPick = now;
-  const k = pick(e.clientX, e.clientY, 10);
+  const k = pickGPU(e.clientX, e.clientY, 6);
   if (k >= 0 && OBJ) {
     tip.innerHTML = `<b>${esc(OBJ.name[k] || OBJ.pdes[k])}</b><br><span style="color:var(--ink-2)">P(Sentry) ${pct(risk(k, 0))} · P(PHA) ${pct(risk(k, 1))}</span>`;
     tip.style.left = Math.min(e.clientX + 14, innerWidth - 230) + "px"; tip.style.top = (e.clientY + 14) + "px"; tip.style.opacity = 1;
@@ -1785,7 +1820,9 @@ window.__neo = {
   get ready() { return !!OBJ && intro.t >= 1; },                               // data loaded and intro finished
   get view() { return { f: filter, m: modeRisk, cam: [...camera.position.toArray(), ...controls.target.toArray()] }; }, shareURL,
   get discCount() { return discCount; },
-  get perf() { return { jsMs: perf.jsMs }; }, pick: (x, y) => pick(x, y, 12),
+  get perf() { return { jsMs: perf.jsMs }; }, pick: (x, y) => pickGPU(x, y), pickCPU: (x, y) => pick(x, y, 12),
+  screenOf: k => { const [x, y, z] = objPos(k, simJD); const v = new THREE.Vector3(x * AU, z * AU, -y * AU).add(world.position).project(camera);
+    return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight, v.z]; },
   get frame() { return viewFrame; }, get worldOffset() { return world.position.toArray(); },
   earthScene: () => W(EARTH().now).toArray(),
   get cloud() { return { count: cloudPts.visible ? cloudGeo.drawRange.count : 0 }; }, cloudSpread: jd => cloudSpread(jd),
