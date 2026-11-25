@@ -157,7 +157,7 @@ a { color: var(--accent); }
       <div><label for="ab">α<sub>B</sub> (allowed miss rate for benign): <b id="ab-v"></b></label><input type="range" id="ab" min="0.01" max="0.30" step="0.01" value="0.10"></div>
     </div>
     <div class="tiles" id="conf-tiles"></div>
-    <p class="muted">Coverage is guaranteed on average over calibration draws, so the realised value can sit slightly under the target. With few calibration hazards (Mode A has ~100 per fold), very small α<sub>H</sub> forces "hazardous" into every set.</p>
+    <p class="muted">Coverage is guaranteed on average over calibration draws, so the realised value can sit slightly under the target. When there are few calibration hazards (each fold here has about 300 in Mode A, but the paper's temporal split has only about 90), very small α<sub>H</sub> forces "hazardous" into every set.</p>
   </div>
 </section>
 
