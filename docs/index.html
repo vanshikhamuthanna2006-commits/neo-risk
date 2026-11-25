@@ -304,6 +304,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
       <label><input type="checkbox" id="t-grid" checked> Scale grid (au)</label>
       <label><input type="checkbox" id="t-top"> Orbits of the 50 riskiest</label>
       <label title="Show only asteroids already observed on the simulation date"><input type="checkbox" id="t-disc"> Discovery history</label>
+      <label title="Covariance clones of the selected asteroid (605 high-risk and featured objects)"><input type="checkbox" id="t-cloud" checked> Uncertainty cloud</label>
     </div>
   </div>
   <div class="count" id="count"></div>
@@ -791,6 +792,32 @@ selMark.visible = false; scene.add(selMark);
 let selected = -1, follow = false;
 const selNow = new THREE.Vector3();
 
+// ---- uncertainty cloud of the selected object (covariance clones, scripts/export_clouds.py)
+const CLOUDS = new Map(), T_CLOUD = 2461200.5;
+const cloudGeo = new THREE.BufferGeometry();
+cloudGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(64 * 3), 3));
+const cloudPts = new THREE.Points(cloudGeo, new THREE.PointsMaterial({ color: 0x9fe6ff, size: 3.2, sizeAttenuation: false,
+  transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }));
+cloudPts.frustumCulled = false; cloudPts.visible = false; scene.add(cloudPts);
+const kepT = (el, jd) => kepler(el[0], el[1], el[2], el[3], el[4], el[5] + GK / (el[0] * Math.sqrt(el[0])) * (jd - T_CLOUD));
+// clone positions (au, ecliptic): clone(t) - centre(t) + displayed(t), so the cloud rides on the asteroid
+function cloudPositions(k, jd) {
+  const c = CLOUDS.get(k); if (!c || !c.centre) return null;
+  const cen = kepT(c.centre, jd), disp = objPos(k, jd);
+  return c.clones.map(el => { const p = kepT(el, jd); return [p[0] - cen[0] + disp[0], p[1] - cen[1] + disp[1], p[2] - cen[2] + disp[2]]; });
+}
+function cloudSpread(jd, k = selected) {
+  const P = cloudPositions(k, jd); if (!P) return 0;
+  const d = objPos(k, jd); return Math.sqrt(P.reduce((s, p) => s + (p[0] - d[0]) ** 2 + (p[1] - d[1]) ** 2 + (p[2] - d[2]) ** 2, 0) / P.length);
+}
+function updateCloud(jd) {
+  const P = selected >= 0 && $("#t-cloud").checked ? cloudPositions(selected, jd) : null;
+  cloudPts.visible = !!P; if (!P) return;
+  const a = cloudGeo.attributes.position.array;
+  P.forEach((p, j) => { a[j * 3] = p[0] * AU; a[j * 3 + 1] = p[2] * AU; a[j * 3 + 2] = -p[1] * AU; });
+  cloudGeo.setDrawRange(0, P.length); cloudGeo.attributes.position.needsUpdate = true;
+}
+
 function objElements(k) { const o = k * 10; return [EL[o], EL[o + 1], EL[o + 2], EL[o + 3], EL[o + 4], EL[o + 5], EL[o + 6]]; }
 function objPos(k, jd) {
   const [a, e, i, O, w, M0, ep] = objElements(k);
@@ -1003,6 +1030,7 @@ function renderCard() {
       <dt>Eccentricity · inclination</dt><dd>${e.toFixed(3)} · ${(i / DEG).toFixed(1)}°</dd>
       <dt>Perihelion / aphelion</dt><dd>${q_.toFixed(3)} / ${Q.toFixed(2)} au</dd>
       <dt>Period</dt><dd>${P < 2 ? (P * 365.25).toFixed(0) + " days" : P.toFixed(2) + " yr"}</dd>
+      ${CLOUDS.has(k) ? `<dt>Uncertainty cloud</dt><dd>${CLOUDS.get(k).clones.length} clones · spread ${fmtKm(cloudSpread(simJD, k) * AU_KM)} km now, ${fmtKm(cloudSpread(simJD + 3652.5, k) * AU_KM)} km in 10 yr</dd>` : ""}
       <dt>Closest to Earth, 50-yr N-body</dt><dd>${dmin != null ? (dmin * AU_KM / LD_KM < 10 ? (dmin * AU_KM / LD_KM).toFixed(2) + " LD" : dmin.toFixed(3) + " au") + (tmin != null ? " · " + Math.floor(jdToYear(2461200.5 + tmin * 365.25)) : "") : "–"}</dd>
       <dt>Officially (audit only)</dt><dd>${OBJ.pha[k] ? "PHA" : "not PHA"}${OBJ.sentry[k] ? " · on Sentry list" : ""}</dd>
     </dl>
@@ -1474,11 +1502,20 @@ function renderEncounters() {
 // load data
 // =====================================================================================
 async function load() {
-  const [buf, fly] = await Promise.all([
+  const [buf, fly, cbuf] = await Promise.all([
     fetch("data/orbits.bin").then(r => { if (!r.ok) throw new Error("orbits.bin " + r.status); return r.arrayBuffer(); }),
-    fetch("data/flybys.json").then(r => r.json())
+    fetch("data/flybys.json").then(r => r.json()),
+    fetch("data/clouds.bin").then(r => r.ok ? r.arrayBuffer() : null).catch(() => null)
   ]);
   EL = new Float32Array(buf); NOBJ = EL.length / 10; FLY = fly;
+  if (cbuf) {                                            // uncertainty clouds: row, k, a, e, i, O, w, M at T_CLOUD
+    const C = new Float64Array(cbuf);                    // float64: clouds can be ~1e-7 au across
+    for (let o = 0; o < C.length; o += 8) {
+      const row = C[o], k = C[o + 1], el = Array.from(C.subarray(o + 2, o + 8));
+      const c = CLOUDS.get(row) || { centre: null, clones: [] }; CLOUDS.set(row, c);
+      if (k === -1) c.centre = el; else c.clones.push(el);
+    }
+  }
   // GPU attributes
   const p = new Float32Array(NOBJ * 3), e1 = new Float32Array(NOBJ * 3), e2 = new Float32Array(NOBJ * 3), aux = new Float32Array(NOBJ * 4);
   for (let k = 0; k < NOBJ; k++) {
@@ -1585,6 +1622,7 @@ function frame(now) {
     sunMat.uniforms.uTime.value = tsec;
     updatePlanets(simJD);
     updateSelection(simJD);
+    updateCloud(simJD);
     if (intro.t < 1) {
       intro.t = Math.min(1, intro.t + dt / intro.dur);
       const k = ease(intro.t); camera.position.lerpVectors(intro.p0, intro.p1, k); controls.target.set(0, 0, 0);
@@ -1629,6 +1667,9 @@ window.__neo = {
   get ready() { return !!OBJ && intro.t >= 1; },                               // data loaded and intro finished
   get view() { return { f: filter, m: modeRisk, cam: [...camera.position.toArray(), ...controls.target.toArray()] }; }, shareURL,
   get discCount() { return discCount; },
+  get cloud() { return { count: cloudPts.visible ? cloudGeo.drawRange.count : 0 }; }, cloudSpread: jd => cloudSpread(jd),
+  cloudCentroidOffset: jd => { const P = cloudPositions(selected, jd), d = objPos(selected, jd); if (!P) return Infinity;
+    const m = [0, 1, 2].map(i => P.reduce((s, p) => s + p[i], 0) / P.length); return Math.hypot(m[0] - d[0], m[1] - d[1], m[2] - d[2]); },
   get tour() { return { steps: TOUR.length, i: tour.i }; },
   get quality() { return { level: quality.level, pixelRatio: renderer.getPixelRatio(), bloom: bloom.enabled }; }, adapt,
   get gridVisible() { return grid.visible; }, get topOrbits() { return { count: TOP.count, rows: TOP.rows }; }, topRows,

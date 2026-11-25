@@ -42,7 +42,7 @@ for m in ("pha", "sentry"):
     err = np.abs(p_rec - np.array(o[f"p_{m}_full"], float)).max()
     chk(err < 1e-4, f"explain {m}: calibrated logit differs from p_full by {err:.2e}")
 # round 2: uncertainty clouds + upcoming close approaches
-C = np.fromfile(D / "clouds.bin", dtype=np.float32).reshape(-1, 8)
+C = np.fromfile(D / "clouds.bin", dtype=np.float64).reshape(-1, 8)
 rowsC = C[:, 0].astype(int)
 chk(((rowsC >= 0) & (rowsC < N)).all(), "clouds: row index out of range")
 cen = C[C[:, 1] == -1]

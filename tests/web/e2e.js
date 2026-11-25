@@ -52,6 +52,16 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
     return c.top >= a.bottom - 0.5 || c.left >= a.right || c.right <= a.left; });
   ok('card does not overlap the brand panel', ov);
   ok('URL updated', /obj=99942/.test(p.url()));
+  // V2: uncertainty cloud for the selected object (Apophis is in the cloud set)
+  {
+    const c = await p.evaluate(() => { const jd = __neo.simJD; return { n: __neo.cloud.count,
+      s0: __neo.cloudSpread(jd), s20: __neo.cloudSpread(jd + 20 * 365.25), off: __neo.cloudCentroidOffset(jd) }; });
+    ok('cloud: ~32 clones shown for Apophis', c.n >= 30, `${c.n}`);
+    ok('cloud: non-zero spread now', c.s0 > 0, `${c.s0}`);
+    ok('cloud: spread grows over 20 years', c.s20 > 1.5 * c.s0, `${c.s0.toExponential(2)} -> ${c.s20.toExponential(2)} au`);
+    ok('cloud: centred on the displayed asteroid', c.off < 0.5 * c.s0 + 1e-9, `offset ${c.off.toExponential(2)} au vs spread ${c.s0.toExponential(2)}`);
+    ok('cloud: card states the spread', /uncertainty cloud/i.test(await p.textContent('#card')));
+  }
   // W1: "why this score" drivers in the atlas card must equal explain.json for this object
   const X = JSON.parse(fs.readFileSync('/home/user/neo-risk/docs/data/explain.json', 'utf8'));
   await p.waitForSelector('#card .drv', { timeout: 30000 });

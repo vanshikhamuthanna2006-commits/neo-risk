@@ -5,13 +5,13 @@ python scripts/export_clouds.py
 For the riskiest objects (top 300 by each mode's out-of-fold score) plus the featured flyby
 objects and a few well-known ones, the Stage-3 clones (same sampler, same seeds) are:
   1. propagated two-body from the covariance epoch to the common epoch T_COMMON (2026),
-  2. turned into offsets from the covariance nominal at T_COMMON, and
-  3. added to the object's N-body-aligned nominal state at T_COMMON (orbits_aligned.parquet),
-     then converted back to osculating elements.
+  2. turned into ELEMENT offsets from the covariance nominal at T_COMMON (angles wrapped;
+     Cartesian offsets give unphysical orbits once a cloud has spread along the orbit), and
+  3. added to the object's N-body-aligned nominal elements at T_COMMON (orbits_aligned.parquet).
 The viewer propagates each clone two-body and anchors the cloud to the displayed position,
 so it always sits on the asteroid; spread grows along the orbit with time, as in Stage 3.
 
-Layout: Float32, 8 values per row: object row, k (-1 = centre), a, e, i, Omega, omega, M at T_COMMON.
+Layout: Float64 (float32 rounding of M is ~1e-7 rad, the size of a well-determined cloud), 8 values per row: object row, k (-1 = centre), a, e, i, Omega, omega, M at T_COMMON.
 """
 from __future__ import annotations
 import json, sys
@@ -70,7 +70,7 @@ def main() -> None:
         i = pdes.get_loc(d)
         for j in np.flatnonzero(ok | (k == -1)):
             rows.append([i, k[j], *el2[j]])
-    arr = np.array(rows, np.float32)
+    arr = np.array(rows, np.float64)
     arr.tofile(out / "clouds.bin")
     n_obj = len(np.unique(arr[:, 0]))
     print(f"clouds.bin: {n_obj} objects, {len(arr)} rows, {arr.nbytes / 1e6:.2f} MB")
