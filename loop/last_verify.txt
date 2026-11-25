@@ -1,1 +1,5 @@
 == pytest
+..........................                                               [100%]
+== data
+check_data: OK
+== browser e2e
