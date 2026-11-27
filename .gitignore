@@ -14,3 +14,11 @@ __pycache__/
 /loop/e2e.txt
 /results/refresh_priors.log
 /loop/ux.txt
+/paper/*.aux
+/paper/*.log
+/paper/*.blg
+/paper/*.bbl
+/paper/*.fls
+/paper/*.fdb_latexmk
+/paper/*.out
+/paper/build.log

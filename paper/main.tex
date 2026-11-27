@@ -1,0 +1,172 @@
+% Draft for IEEE Access (formatted with IEEEtran journal; move to the IEEE Access template before submission).
+% All numbers come from generated/numbers.tex (scripts/paper_numbers.py); do not type results by hand.
+\documentclass[journal]{IEEEtran}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{cite}
+\usepackage{url}
+\usepackage{xurl}            % long URLs may break anywhere
+\setlength{\emergencystretch}{1em}  % room for long unbreakable intervals such as +0.135 [+0.115, +0.156]
+\raggedbottom                % draft only: IEEE sets the final layout
+\usepackage[hidelinks]{hyperref}
+\input{generated/numbers.tex}
+\newcommand{\dpr}{\ensuremath{\Delta}PR-AUC}
+
+\begin{document}
+
+\title{Leakage-Free, Uncertainty-Aware Classification of Near-Earth Asteroid Hazard with N-Body Dynamics and Covariance Clones}
+
+\author{\IEEEauthorblockN{Author Name\IEEEauthorrefmark{1}}
+\IEEEauthorblockA{\IEEEauthorrefmark{1}Department, Institution, City, Country}
+\thanks{Corresponding author: Author Name (e-mail: author@institution.edu).}}
+
+\maketitle
+
+\begin{abstract}
+Published machine-learning classifiers that label near-Earth asteroids as potentially hazardous (PHAs) often report accuracies above 94\%, yet many use the minimum orbit intersection distance (MOID) and absolute magnitude $H$ as inputs, the two quantities that define the PHA label. We quantify this circularity and build a classifier that never sees them. Using \NObj{} near-Earth objects from the JPL Small-Body Database with full orbit covariances, we target two labels: the PHA flag (Mode A, \PrevPHA\% positive) and membership of JPL's Sentry impact-monitoring list (Mode B, \PrevSentry\% positive). Name and rank-correlation gates block any input that reconstructs MOID or $H$, and a probe model measures how much of either remains implicitly recoverable. We add 50-year N-body propagation features and 32 covariance clones per object, propagated through the same dynamics, and evaluate LightGBM, an asymmetric focal loss, a dual-branch network and an ensemble on stratified and discovery-time splits with five seeds and paired bootstrap intervals. With MOID and $H$ the PHA task is trivial (PR-AUC \PRPhaStratifiedAllNaive); without them the static baseline reaches \PRPhaStratifiedAllStatic. Dynamics and uncertainty features raise PR-AUC by \DSentryStratifiedAllFull{} (Sentry, stratified) and \DSentryTemporalAllFull{} (Sentry, temporal), and by \DPhaStratifiedAllFull{} for the PHA label, with the largest relative gains on short-arc objects. Neither the focal loss nor the neural models improve consistently on log-loss LightGBM. Label-conditional conformal prediction gives finite-sample coverage for follow-up decisions. We release code, out-of-fold scores, per-object explanations and an interactive atlas, and we state the limits of the study, including partial emulation of Sentry's own method.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Near-Earth objects, planetary defense, data leakage, gradient boosting, N-body simulation, uncertainty quantification, conformal prediction, explainable AI.
+\end{IEEEkeywords}
+
+\section{Introduction}
+\IEEEPARstart{A}{steroid} impact hazard is assessed operationally by orbit determination followed by impact monitoring, in which each object's orbit uncertainty is propagated to search for virtual impactors \cite{milani2005,roa2021}; results are summarised on the Palermo and Torino scales \cite{chesley2002,binzel2000}. In parallel, a growing number of studies train machine-learning classifiers to label near-Earth objects as potentially hazardous \cite{malakouti2023,bora2024,jacques2025,delina2024}. The PHA designation is a deterministic rule: MOID with respect to Earth of at most 0.05~au and $H\le 22$. Several of these studies use MOID, $H$ or close-approach distances among the inputs, identify them as the most important features \cite{bora2024}, and report accuracies of 94--99\% \cite{malakouti2023,jacques2025}. A classifier given the defining quantities can reproduce the rule without learning anything about hazard. This is a case of target leakage \cite{kaufman2012}.
+
+Three further gaps limit the usefulness of such classifiers. Most use a single static set of osculating elements, although close encounters change orbits over decades. Most ignore orbit-determination uncertainty, although an object with a short observation arc can have a nominal orbit far from its true one, which is the case impact monitoring exists to handle \cite{milani2005}. Finally, they address the strong class imbalance with resampling such as SMOTE \cite{chawla2002} and report accuracy, a metric that is uninformative at 5\% prevalence \cite{saito2015}.
+
+We make five contributions.
+\begin{enumerate}
+\item A \emph{leakage-controlled protocol} for NEO hazard classification: MOID, $H$ and every input that reconstructs them are blocked by name and rank-correlation gates. A probe quantifies the information that remains implicitly recoverable from legitimate inputs ($R^2=\ProbeHAll$ for $H$, $\ProbeMoidAll$ for MOID).
+\item \emph{Physics-informed features} from 50-year N-body propagation of all \NObj{} objects, and from 32 covariance clones per object propagated through the same dynamics.
+\item A careful evaluation with two labels, stratified and discovery-time splits, five seeds, paired stratified bootstrap intervals, a short-arc stratum, and an ablation that includes asymmetric focal loss, a dual-branch network and an ensemble.
+\item A \emph{decision layer}: calibrated probabilities, a cost-optimal threshold and label-conditional (Mondrian) conformal sets with finite-sample coverage \cite{vovk2005,angelopoulos2023}.
+\item An open release: code, out-of-fold scores, TreeSHAP explanations for every object \cite{lundberg2020}, and an interactive atlas. Positions in the atlas are validated against JPL Horizons \cite{jplhorizons}.
+\end{enumerate}
+
+\section{Related Work}
+\emph{Impact monitoring.} JPL's Sentry and its successor Sentry-II sample the orbit-uncertainty region and integrate it forward to find virtual impactors, including non-gravitational forces where needed \cite{roa2021}; earlier systems searched the line of variations \cite{milani2005}. These systems are the reference for risk: the present work does not replace them, but asks what a fast, transparent model learns from the same kinds of information.
+
+\emph{Machine learning for PHAs.} Prior classifiers use tree ensembles, neural networks and graph neural networks on catalogue features \cite{malakouti2023,bora2024,jacques2025,delina2024}. Bora et al.\ also use N-body integration and report MOID and $H$ as crucial features \cite{bora2024}; Jacques applies SMOTE to a 0.22\%-prevalence label \cite{jacques2025}. We are not aware of prior work that removes the label-defining inputs, measures residual leakage, or uses covariance-based uncertainty.
+
+\emph{Imbalance and evaluation.} For rare positives, precision--recall analysis is more informative than ROC analysis \cite{davis2006,saito2015}. Cost-sensitive objectives such as the focal loss \cite{lin2017} are an alternative to resampling; conformal prediction provides distribution-free coverage guarantees \cite{vovk2005,angelopoulos2023}.
+
+\section{Data, Labels and Leakage Controls}
+\subsection{Data}
+We downloaded all near-Earth objects with a numerical orbit solution and covariance from the JPL Small-Body Database, together with the Sentry list, on \SnapshotDate{} \cite{jplsbdb}. This gives \NObj{} objects. For each object we use its osculating elements and their formal uncertainties; observation metadata (data arc, number of observations, condition code, residual RMS, time since last observation); and physical information where measured (diameter for \NDiam{} objects, rotation period, taxonomy). Missing values are kept as missing, with explicit masks rather than mean imputation. Objects with a data arc shorter than 30~days form the \emph{short-arc stratum} (\NShortArc{} objects, \PctShortArc\%).
+
+\subsection{Labels}
+\emph{Mode A} is the PHA flag (\NPHA{} positives, \PrevPHA\%); the flag disagrees with the MOID/$H$ rule recomputed from the catalogue for \NPhaDisagree{} objects, and we use the flag as published. \emph{Mode B} is membership of the Sentry list (\NSentry{} objects, \PrevSentry\%), which marks objects with at least one virtual impactor found by impact monitoring. In our snapshot, all \NTorinoRated{} Torino-rated Sentry objects are at level \TorinoMax{}, and the highest cumulative Palermo value is \PalermoMax{} (\PalermoMaxName). Mode B is therefore a list of ``objects whose impact probability is not yet ruled out'', not of likely impactors.
+
+\subsection{Leakage controls}
+Every model except the deliberately circular baseline passes two gates before training. A \emph{name gate} rejects features derived from MOID, $H$, the PHA flag or any Sentry output. A \emph{rank-correlation gate} rejects any feature whose absolute Spearman correlation with an audit column (MOID, $H$, the flags, Sentry outputs) exceeds 0.995; the largest observed value is \MaxRankCorr. Diameter combined with albedo reconstructs $H$, so albedo is kept out of the inputs.
+
+The gates prevent direct access but not implicit recoverability. We therefore train a gradient-boosted regressor to predict $H$ and MOID from each group of legitimate inputs (Table~\ref{tab:probe}). Orbital elements predict MOID well ($R^2=\ProbeMoidOrbit$), as expected, since MOID is a function of the orbit; observation metadata predict $H$ ($R^2=\ProbeHObs$), because faint objects are observed differently. These are physical relations, not leaks, but they bound what ``leak-free'' can mean: the models cannot read MOID or $H$, yet part of their information is present.
+
+\begin{table}[t]
+\caption{Residual information: cross-validated $R^2$ of a probe predicting $H$ and MOID from groups of leak-free inputs.}
+\label{tab:probe}
+\centering
+\input{generated/tab_probe.tex}
+\end{table}
+
+\section{Methods}
+\subsection{N-body dynamics}
+All objects are propagated for 50 years from a common epoch with REBOUND \cite{rein2012}. We use the MERCURIUS hybrid integrator \cite{rein2019} with a 1-day step, switching to IAS15 \cite{rein2015} for the \NIAS{} objects whose perihelion passage would be under-resolved. The Sun, Venus, the Earth--Moon barycentre, Mars, Jupiter and Saturn are active bodies. Their initial conditions come from Standish's approximate elements \cite{standish} (position errors of order $10^{-4}$~au for the inner planets); a DE440 ephemeris \cite{park2021} can be substituted. Features include the changes in $a$, $e$ and $i$ at 10, 25 and 50 years, the minimum Earth distance $d_{\min}$ and its time, the number of encounters within 0.05~au, and a divergence (Lyapunov-proxy) growth rate from a shadow particle. The maximum relative energy error is $\EnergyErr$, no object is lost, and $d_{\min}\ge$ MOID for \FracDminGeMoid\% of objects, as expected, since MOID is a lower bound on the separation (Spearman $\rho=\SpearmanDminMoid$).
+
+\subsection{Covariance clones}
+For each object we draw 32 antithetic samples from the full JPL covariance of the cometary elements $(e,q,t_p,\Omega,\omega,i)$. The leading $6\times6$ block is used where non-gravitational parameters are estimated. Clones are converted to Keplerian elements, aligned to the common epoch, and re-centred on the N-body nominal state, so that the dispersion comes from the covariance while the centre matches the full-force orbit; they are then propagated with the same dynamics. Clones covered \UncCoverage\% of objects; unbound draws (\FracUnbound\% on average) are counted, not resampled. Features summarise the clone cloud: spread of $d_{\min}$, its 5th percentile, $P(d_{\min}<0.05\text{ au})$ and $P(d_{\min}<0.01\text{ au})$, spread of encounter times and of $\Delta a$ at 50 years, together with covariance-shape statistics (formal $\sigma$ of each element, line-of-variations scale, condition number).
+
+\subsection{Physical priors}
+Albedo and bulk density priors are assigned by taxonomic complex, with explicit masks. S and C values follow Thomas et al.\ (NEO albedo; S 0.26, C 0.13) \cite{thomas2011} and Carry (density; S $2.72\pm0.54$, C $1.33\pm0.58$~g\,cm$^{-3}$) \cite{carry2012}. The X complex, the ``other'' class and the mixture used for objects without taxonomy are stated assumptions. Mass and impact energy are computed only where a diameter is measured. Replacing an earlier C-complex albedo of 0.06 (a main-belt value) with the NEO value changed PR-AUC by \PriorDeltaPha{} (PHA) and \PriorDeltaSentry{} (Sentry), well inside the bootstrap intervals; all results use the cited values.
+
+\subsection{Models}
+The reference model is LightGBM \cite{ke2017} with log-loss on the \NStaticFeat{} static inputs. The ablation adds dynamics features, then uncertainty and physical features (\NFullFeat{} inputs in total). We also test three alternatives. The first is an asymmetric focal loss \cite{lin2017} with an extra penalty $\lambda_{\mathrm{FN}}$ on false negatives, implemented as a custom LightGBM objective with an exact gradient and a positive surrogate Hessian $\lambda_y p(1-p)$ for stability; $(\gamma,\lambda_{\mathrm{FN}})$ is chosen on the validation split from a grid that includes plain log-loss. The second is a dual-branch residual MLP in PyTorch \cite{paszke2019}, with separate branches for static and dynamical inputs. The third is an equal-weight logit ensemble of the two. All models are Platt-calibrated on the validation split \cite{platt1999}. A deliberately circular baseline that adds MOID and $H$ shows the size of the leakage effect.
+
+\subsection{Decision layer}
+With calibrated probabilities, the cost-optimal rule flags an object when $p>C_{\mathrm{FP}}/(C_{\mathrm{FP}}+C_{\mathrm{FN}})$. We report expected cost for $C_{\mathrm{FN}}:C_{\mathrm{FP}}=100:1$. For triage, we fit Mondrian split-conformal sets on a calibration split \cite{vovk2005,angelopoulos2023}, with class-specific miss rates $\alpha_H$ (hazardous) and $\alpha_B=0.10$ (benign). Objects whose set contains both labels are sent to follow-up.
+
+\subsection{Evaluation protocol}
+Data are split 60/10/15/15 into training, validation (early stopping, calibration of the probability scale and model selection), conformal calibration and test. The \emph{stratified} split preserves label and short-arc proportions. The \emph{temporal} split trains on earlier discoveries and tests on later ones, which approximates the operational setting of scoring newly found objects. Each configuration is run with five seeds. Confidence intervals come from a stratified bootstrap with 500 replicates per seed \cite{efron1994}, paired across models and averaged replicate-wise across seeds. The primary metric is PR-AUC \cite{davis2006,saito2015}; we also report ROC-AUC, recall at 1\% false-positive rate, Brier score and expected cost.
+
+\section{Results}
+\subsection{The circularity effect}
+With MOID and $H$ as inputs, PR-AUC for the PHA label is \PRPhaStratifiedAllNaive{} (stratified) and \PRPhaTemporalAllNaive{} (temporal): the model reproduces the definition. Removing them reduces PR-AUC to \PRPhaStratifiedAllStatic{} and \PRPhaTemporalAllStatic{}, the honest difficulty of the task from the remaining information (Table~\ref{tab:ablation}). For the Sentry label, MOID and $H$ are informative but not definitional, and the circular model reaches \PRSentryStratifiedAllNaive.
+
+\begin{table*}[t]
+\caption{Test PR-AUC of the leak-free reference and the circular baseline, and change in PR-AUC versus the reference with 95\% paired bootstrap intervals (5 seeds $\times$ 500 replicates). Bold: positive change whose interval excludes zero.}
+\label{tab:ablation}
+\centering
+\input{generated/tab_ablation.tex}
+\end{table*}
+
+\subsection{Dynamics and uncertainty}
+Orbital elements alone are far weaker than the full static set (Table~\ref{tab:ablation}), so observation metadata carry much of the signal. Adding N-body dynamics features gives a modest but significant gain for Sentry (\DSentryStratifiedAllDyn) and none for PHA. Adding the covariance-clone and physical features gives the largest gains: \DSentryStratifiedAllFull{} and \DSentryTemporalAllFull{} for Sentry, and \DPhaStratifiedAllFull{} for PHA (stratified). The PHA temporal interval includes zero (\DPhaTemporalAllFull), so improvement on newly discovered objects is not established for that label. Recall at 1\% false-positive rate for Sentry (temporal) rises from \RecSentryTemporalAllStatic\% to \RecSentryTemporalAllFull\%, and expected cost per thousand objects falls from \CostSentryTemporalAllStatic{} to \CostSentryTemporalAllFull{} (Fig.~\ref{fig:pr}).
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/pr_sentry_temporal.pdf}
+\caption{Precision--recall curves on the temporal test split for the Sentry label (five seeds pooled).}
+\label{fig:pr}
+\end{figure}
+
+\subsection{Short observation arcs}
+The gains are largest where catalogues are least certain (Table~\ref{tab:short}). For short-arc PHAs on the temporal split, PR-AUC rises from \PRPhaTemporalShortStatic{} to \PRPhaTemporalShortFull{} (\DPhaTemporalShortFull). The test sets for this stratum are small, so the intervals are wide.
+
+\begin{table*}[t]
+\caption{Short-arc stratum (data arc $<30$~d): test size (positives) averaged over seeds, PR-AUC of the reference and of the full model, and the paired change.}
+\label{tab:short}
+\centering
+\input{generated/tab_shortarc.tex}
+\end{table*}
+
+\subsection{Loss functions and model families}
+Selecting the asymmetric focal loss on validation data gives no consistent improvement over log-loss. It is slightly lower for Sentry with the stratified split (\DSentryStratifiedAllFocal{} versus \DSentryStratifiedAllFull) and slightly higher with the temporal split (\DSentryTemporalAllFocal{} versus \DSentryTemporalAllFull), with differences well inside the intervals. The dual-branch MLP is weaker than LightGBM on both labels; the ensemble is comparable to LightGBM on the Sentry label (\DSentryTemporalAllEns{}, temporal) and adds nothing for PHA (Table~\ref{tab:ablation}). Paired tests between these variants, rather than against the reference, are left to the final version. With calibrated probabilities, moving the decision threshold achieves the intended asymmetry without changing the training objective.
+
+\subsection{Calibration and decisions}
+Platt-calibrated out-of-fold probabilities track observed frequencies closely above about 1\% and are somewhat over-confident below it (Fig.~\ref{fig:rel}). Mondrian conformal sets meet their coverage targets on average (Table~\ref{tab:conf}). For Sentry (temporal) at $\alpha_H=0.10$, the full model sends \FollowSenTempFull\% of objects to follow-up, against \FollowSenTempStatic\% for the static model at the same guaranteed hazard coverage. For the PHA temporal split, about \NCalPosPhaTemp{} positives are available for calibration, and very small $\alpha_H$ forces ``hazardous'' into most sets.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/reliability_pha_stratified.pdf}
+\caption{Reliability of calibrated probabilities (PHA label, stratified split).}
+\label{fig:rel}
+\end{figure}
+
+\begin{table*}[t]
+\caption{Mondrian conformal sets on the temporal splits (mean over seeds, $\alpha_B=0.10$).}
+\label{tab:conf}
+\centering
+\input{generated/tab_conformal.tex}
+\end{table*}
+
+\subsection{What the model uses}
+For the Sentry label, the most important input of the full model is \texttt{\TopFeatSentry} (\TopFeatSentryShare\% of total split gain), and dynamics and uncertainty features account for \DynUncShareTopFifteen\% of the gain among the 15 most important inputs. TreeSHAP contributions \cite{lundberg2020} are released for every object, from the cross-validation model that scored it. They add exactly to that model's log-odds. They also reveal a limitation: Bennu is on the Sentry list, but its listed impact window lies beyond our 50-year horizon and its clone cloud barely spreads within it, so the full model assigns it $P=\BennuPSentry\%$.
+
+\section{Discussion and Limitations}
+\emph{Emulation of Sentry.} Sentry builds its list by sampling each object's orbit uncertainty, and our clone features approximate that process. Part of the Mode B gain therefore reflects a cheap model learning to emulate Sentry rather than discovering new hazard signal. Mode A provides a label that does not come from that process; a stronger test is prospective. We release a script that rescores objects later added to or removed from the Sentry list; at the time of writing, too few had changed to evaluate.
+
+\emph{Implicit information.} The probe in Table~\ref{tab:probe} shows that ``leak-free'' means no direct access, not no information: MOID and $H$ remain largely predictable from legitimate inputs.
+
+\emph{Physics approximations.} Planetary initial conditions use approximate elements rather than DE440 \cite{park2021}. Clones sample the gravitational covariance block, so Yarkovsky and other non-gravitational effects \cite{bottke2006} are not sampled. A 50-year horizon misses risks further in the future, as the Bennu case shows. Physical priors for the X complex and for objects without taxonomy are assumptions; survey albedos such as NEOWISE \cite{mainzer2011} would reduce them.
+
+\emph{Scope.} The models score catalogued objects for triage and explanation. They are not an impact-probability estimator, and they do not replace orbit determination or impact monitoring \cite{roa2021}. Population-level biases in which objects are discovered \cite{granvik2018} also shape both labels.
+
+\section{Software and Data Availability}
+Code, configuration, tests, out-of-fold scores, explanations and figures are available at \url{https://github.com/vanshikhamuthanna2006-commits/neo-risk}. The release includes a browser-based atlas that propagates all objects on the GPU from orbital elements aligned to a common epoch by N-body integration (Fig.~\ref{fig:atlas}). It replays six close approaches from JPL Horizons trajectories, whose minimum distances agree with the JPL close-approach database to within \FlybyMaxErrKm~km on a 10-minute grid. Inputs are retrieved from public JPL services \cite{jplsbdb,jplhorizons}.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/atlas.png}
+\caption{The released interactive atlas: objects coloured by out-of-fold model score, the orbits of the 50 highest-scoring objects, and a per-object explanation panel.}
+\label{fig:atlas}
+\end{figure}
+
+\section{Conclusion}
+Removing MOID and $H$ from PHA classifiers exposes how much of their reported performance comes from the label's definition. Within a leakage-controlled protocol, features from N-body dynamics and, above all, from orbit-covariance clones improve hazard ranking, most for short-arc objects, while cost-sensitive training brings no consistent benefit over threshold-moving on calibrated probabilities. Conformal sets turn the scores into follow-up decisions with stated coverage. The largest open question is prospective: whether the scores anticipate future changes to the risk lists.
+
+\bibliographystyle{IEEEtran}
+\bibliography{refs}
+
+\end{document}

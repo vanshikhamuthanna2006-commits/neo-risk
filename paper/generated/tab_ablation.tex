@@ -1,0 +1,19 @@
+\begin{tabular}{lcccc}
+\toprule
+ & \multicolumn{2}{c}{Mode B: Sentry list} & \multicolumn{2}{c}{Mode A: PHA}\\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+Model & Stratified & Temporal & Stratified & Temporal\\
+\midrule
+\multicolumn{5}{l}{\emph{PR-AUC of the reference and of the circular model}}\\
+Leak-free static (reference) & 0.468 & 0.415 & 0.758 & 0.520\\
+Naive, uses MOID and $H$ & 0.655 & 0.583 & 0.999 & 0.998\\
+\midrule
+\multicolumn{5}{l}{\emph{$\Delta$PR-AUC versus the reference [95\% CI]}}\\
+Orbital elements only & $-$0.090\,{\scriptsize[$-$0.107, $-$0.071]} & $-$0.059\,{\scriptsize[$-$0.075, $-$0.043]} & $-$0.433\,{\scriptsize[$-$0.454, $-$0.409]} & $-$0.334\,{\scriptsize[$-$0.375, $-$0.291]}\\
++ N-body dynamics & \textbf{+0.039\,{\scriptsize[+0.024, +0.055]}} & \textbf{+0.024\,{\scriptsize[+0.006, +0.041]}} & +0.013\,{\scriptsize[$-$0.000, +0.026]} & $-$0.036\,{\scriptsize[$-$0.057, $-$0.010]}\\
++ dynamics + uncertainty & \textbf{+0.135\,{\scriptsize[+0.115, +0.156]}} & \textbf{+0.119\,{\scriptsize[+0.098, +0.139]}} & \textbf{+0.032\,{\scriptsize[+0.019, +0.046]}} & +0.020\,{\scriptsize[$-$0.008, +0.052]}\\
+\quad with asymmetric focal loss & \textbf{+0.131\,{\scriptsize[+0.111, +0.151]}} & \textbf{+0.125\,{\scriptsize[+0.103, +0.144]}} & \textbf{+0.032\,{\scriptsize[+0.020, +0.046]}} & +0.012\,{\scriptsize[$-$0.019, +0.043]}\\
+Dual-branch MLP (focal) & \textbf{+0.067\,{\scriptsize[+0.044, +0.092]}} & \textbf{+0.064\,{\scriptsize[+0.041, +0.085]}} & $-$0.065\,{\scriptsize[$-$0.083, $-$0.047]} & $-$0.071\,{\scriptsize[$-$0.110, $-$0.028]}\\
+Ensemble (LightGBM + MLP) & \textbf{+0.133\,{\scriptsize[+0.113, +0.155]}} & \textbf{+0.127\,{\scriptsize[+0.104, +0.146]}} & \textbf{+0.029\,{\scriptsize[+0.014, +0.044]}} & +0.002\,{\scriptsize[$-$0.029, +0.041]}\\
+\bottomrule
+\end{tabular}
