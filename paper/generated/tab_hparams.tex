@@ -1,0 +1,13 @@
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.24\columnwidth}>{\raggedright\arraybackslash}p{0.64\columnwidth}}
+\toprule
+Component & Setting\\
+\midrule
+LightGBM & 31 leaves, learning rate 0.05, up to 3,000 trees, early stopping 100, min.\ child 20, feature fraction 0.9, bagging 0.8\\
+Focal grid $(\gamma,\lambda_{\mathrm{FN}})$ & (0, 1), (1, 5), (2, 10), (1, 20); chosen on validation by recall at 1\% FPR\\
+Dual-branch MLP & width 128, embedding 64, 2 residual blocks, dropout 0.1, AdamW lr 0.001, weight decay 0.0001, batch 512, $\le$80 epochs, patience 10\\
+N-body & 50 yr, step 1 d, MERCURIUS; IAS15 if perihelion passage $<3$ steps; encounter threshold 0.05 au\\
+Clones & 32 antithetic draws per object\\
+Decision layer & $C_{\mathrm{FN}}:C_{\mathrm{FP}}=100:1$; conformal $\alpha_B=0.1$, $\alpha_H\in\{0.01,0.05,0.10\}$\\
+Evaluation & 60/10/15/15 split, 5 seeds, 500 paired stratified bootstrap replicates per seed\\
+\bottomrule
+\end{tabular}

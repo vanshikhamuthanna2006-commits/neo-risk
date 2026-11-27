@@ -1,0 +1,12 @@
+\begin{tabular}{lcccc}
+\toprule
+ & \multicolumn{2}{c}{Mode B: Sentry list} & \multicolumn{2}{c}{Mode A: PHA}\\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+Comparison (A $-$ B) & Stratified & Temporal & Stratified & Temporal\\
+\midrule
+Uncertainty features beyond dynamics & \textbf{+0.096\,{\scriptsize[+0.079, +0.113]}} & \textbf{+0.094\,{\scriptsize[+0.077, +0.115]}} & \textbf{+0.019\,{\scriptsize[+0.010, +0.028]}} & \textbf{+0.056\,{\scriptsize[+0.032, +0.082]}}\\
+Asymmetric focal loss vs log-loss & $-$0.004\,{\scriptsize[$-$0.011, +0.004]} & +0.006\,{\scriptsize[$-$0.003, +0.015]} & +0.001\,{\scriptsize[$-$0.004, +0.005]} & $-$0.008\,{\scriptsize[$-$0.026, +0.007]}\\
+Ensemble vs LightGBM & $-$0.002\,{\scriptsize[$-$0.011, +0.008]} & +0.008\,{\scriptsize[$-$0.003, +0.018]} & $-$0.003\,{\scriptsize[$-$0.011, +0.005]} & $-$0.017\,{\scriptsize[$-$0.040, +0.004]}\\
+Dual-branch MLP vs LightGBM & \textbf{$-$0.068\,{\scriptsize[$-$0.083, $-$0.052]}} & \textbf{$-$0.055\,{\scriptsize[$-$0.069, $-$0.040]}} & \textbf{$-$0.097\,{\scriptsize[$-$0.112, $-$0.083]}} & \textbf{$-$0.090\,{\scriptsize[$-$0.125, $-$0.060]}}\\
+\bottomrule
+\end{tabular}

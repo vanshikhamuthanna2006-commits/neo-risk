@@ -1,0 +1,17 @@
+\begin{tabular}{llccccc}
+\toprule
+Setting & Model & PR-AUC & ROC-AUC & Recall@1\%FPR & Brier & Cost/1k\\
+\midrule
+Sentry, stratified & Leak-free static & 0.468 & 0.928 & 27.4\% & 0.0361 & 429\\
+ & + dyn.\ + unc. & 0.603 & 0.954 & 39.3\% & 0.0307 & 349\\
+\midrule
+Sentry, temporal & Leak-free static & 0.415 & 0.898 & 21.2\% & 0.0480 & 596\\
+ & + dyn.\ + unc. & 0.533 & 0.932 & 27.3\% & 0.0422 & 493\\
+\midrule
+PHA, stratified & Leak-free static & 0.758 & 0.977 & 55.6\% & 0.0255 & 245\\
+ & + dyn.\ + unc. & 0.790 & 0.980 & 59.3\% & 0.0237 & 233\\
+\midrule
+PHA, temporal & Leak-free static & 0.520 & 0.979 & 55.9\% & 0.0105 & 166\\
+ & + dyn.\ + unc. & 0.540 & 0.983 & 61.8\% & 0.0102 & 159\\
+\bottomrule
+\end{tabular}

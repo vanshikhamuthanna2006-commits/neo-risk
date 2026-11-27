@@ -1,0 +1,15 @@
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.30\columnwidth}c>{\raggedright\arraybackslash}p{0.47\columnwidth}}
+\toprule
+Group & $n$ & Examples\\
+\midrule
+Orbital elements and derived & 12 & $a, e, i, q, Q$, angles as sin/cos, $T_J$\\
+Observation metadata & 12 & data arc, $n_{\mathrm{obs}}$, radar, condition code, RMS, formal $\sigma$, staleness\\
+Physical (measured, masked) & 6 & diameter, rotation period, taxonomy\\
+Missingness masks & 11 & one indicator per field that can be missing\\
+N-body dynamics & 19 & $\Delta a,\Delta e,\Delta i$ at 10/25/50 yr, $d_{\min}$, encounters, divergence\\
+Covariance clones & 19 & clone $d_{\min}$ spread and quantiles, $P(d_{\min}<0.05,0.01$ au$)$, $\sigma$ of elements\\
+Physical priors & 12 & albedo/density priors, $v_\infty$, impact speed, mass, energy\\
+\midrule
+Total (full model) & 91 & \\
+\bottomrule
+\end{tabular}
